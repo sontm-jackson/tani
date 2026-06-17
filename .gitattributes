@@ -1,0 +1,10 @@
+# Normalize all text files to LF in the repository (consistent cross-platform)
+* text=auto eol=lf
+
+# Binary files — never normalize
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pptx binary
+*.pdf binary
