@@ -1,0 +1,188 @@
+// Tani data model. Deliberately commodity-agnostic: nothing here is coffee-specific.
+// The engine only knows event -> rule -> contributions -> payout.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// An operator is a cooperative / exporter that funds and controls a payout pool.
+model Operator {
+  id            String         @id @default(cuid())
+  name          String
+  region        String?
+  poolPublicKey String // distribution (pool) Stellar account
+  poolSecret    String // testnet only — NOT production safe
+  createdAt     DateTime       @default(now())
+  farmers       Farmer[]
+  lots          Lot[]
+  rules         Rule[]
+  events        Event[]
+  disbursements Disbursement[]
+  shipments     Shipment[]
+}
+
+// A farmer / supplier. Custodial: Tani manages their Stellar wallet; they sign in by phone.
+model Farmer {
+  id            String         @id @default(cuid())
+  operatorId    String
+  operator      Operator       @relation(fields: [operatorId], references: [id])
+  name          String
+  phone         String         @unique
+  village       String?
+  // payout destination an anchor would send local currency to (set by the farmer)
+  payoutType     String? // "bank" | "momo"
+  payoutProvider String? // bank name, or "MoMo" / "ZaloPay"
+  payoutAccount  String? // account or phone number
+  payoutName     String? // account holder name
+  wallet        Wallet?
+  contributions Contribution[]
+  payments      Payment[]
+  cashOuts      CashOut[]
+  shipments     Shipment[]
+  createdAt     DateTime       @default(now())
+}
+
+// A farmer-declared shipment: the package + all declared attributes, carried by a QR.
+// The operator scans on arrival and verifies each field against the physical goods.
+model Shipment {
+  id            String    @id @default(cuid())
+  operatorId    String
+  operator      Operator  @relation(fields: [operatorId], references: [id])
+  farmerId      String
+  farmer        Farmer    @relation(fields: [farmerId], references: [id])
+  commodity     String    @default("coffee")
+  qrToken       String    @unique // unguessable lookup token encoded in the QR
+
+  // declared by the farmer
+  variety       String?
+  claimedKg     Float
+  grade         String?
+  processing    String?
+  moisture      Float?
+  certification String?
+  harvestDate   String?
+
+  // set by the operator on verification
+  status        String    @default("declared") // declared | paid | rejected
+  verifiedKg    Float?
+  discrepancies String? // json array of adjusted/mismatched fields
+  note          String?
+  verifiedAt    DateTime?
+  amountPaid    Float?
+  paymentTxHash String?
+
+  createdAt     DateTime  @default(now())
+}
+
+// Custodial Stellar account for a farmer.
+model Wallet {
+  id        String   @id @default(cuid())
+  farmerId  String   @unique
+  farmer    Farmer   @relation(fields: [farmerId], references: [id])
+  publicKey String
+  secret    String // testnet only
+  trustline Boolean  @default(false) // USDC trustline established?
+  createdAt DateTime @default(now())
+}
+
+// A traceable batch of product. "lot" is generic; commodity distinguishes the vertical.
+model Lot {
+  id            String         @id @default(cuid())
+  operatorId    String
+  operator      Operator       @relation(fields: [operatorId], references: [id])
+  code          String
+  commodity     String         @default("coffee")
+  status        String         @default("pending") // pending | verified | paid
+  createdAt     DateTime       @default(now())
+  contributions Contribution[]
+  events        Event[]
+
+  @@unique([operatorId, code])
+}
+
+// How much a farmer contributed to a lot. Drives how much each is owed.
+model Contribution {
+  id         String @id @default(cuid())
+  lotId      String
+  lot        Lot    @relation(fields: [lotId], references: [id])
+  farmerId   String
+  farmer     Farmer @relation(fields: [farmerId], references: [id])
+  quantityKg Float
+}
+
+// A payout rule. eventType + commodity scope -> amount formula. (MVP: per-kg rate.)
+model Rule {
+  id         String   @id @default(cuid())
+  operatorId String
+  operator   Operator @relation(fields: [operatorId], references: [id])
+  name       String
+  eventType  String // e.g. lot.verified
+  commodity  String   @default("coffee")
+  ratePerKg  Float // USDC per kg
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+}
+
+// An incoming verified traceability event. idempotencyKey prevents double-pay.
+model Event {
+  id             String        @id @default(cuid())
+  operatorId     String
+  operator       Operator      @relation(fields: [operatorId], references: [id])
+  type           String // lot.verified
+  lotId          String?
+  lot            Lot?          @relation(fields: [lotId], references: [id])
+  idempotencyKey String        @unique
+  payload        String? // raw json
+  status         String        @default("received") // received | processed | failed
+  createdAt      DateTime      @default(now())
+  disbursement   Disbursement?
+}
+
+// The payout produced by an event: a group of on-chain payments.
+model Disbursement {
+  id          String    @id @default(cuid())
+  operatorId  String
+  operator    Operator  @relation(fields: [operatorId], references: [id])
+  eventId     String    @unique
+  event       Event     @relation(fields: [eventId], references: [id])
+  status      String    @default("pending") // pending | submitted | success | failed
+  txHash      String?
+  totalAmount Float     @default(0)
+  error       String?
+  createdAt   DateTime  @default(now())
+  payments    Payment[]
+}
+
+// A single payment to one farmer inside a disbursement.
+model Payment {
+  id             String       @id @default(cuid())
+  disbursementId String
+  disbursement   Disbursement @relation(fields: [disbursementId], references: [id])
+  farmerId       String
+  farmer         Farmer       @relation(fields: [farmerId], references: [id])
+  amount         Float
+  reason         String?
+  createdAt      DateTime     @default(now())
+}
+
+// A farmer cashing out USDC to local currency via the anchor (simulated on testnet).
+model CashOut {
+  id          String   @id @default(cuid())
+  farmerId    String
+  farmer      Farmer   @relation(fields: [farmerId], references: [id])
+  amountUsdc  Float
+  amountLocal Float
+  currency    String   @default("VND")
+  // snapshot of where the local currency was sent (the anchor destination)
+  destType     String? // "bank" | "momo"
+  destProvider String?
+  destMasked   String? // masked account, e.g. "MoMo ••••6789"
+  txHash      String?
+  status      String   @default("pending") // pending | success | failed
+  createdAt   DateTime @default(now())
+}

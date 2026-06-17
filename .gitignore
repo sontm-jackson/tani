@@ -1,0 +1,30 @@
+# dependencies & build output
+node_modules/
+dist/
+dev-dist/
+*.tsbuildinfo
+
+# secrets — never commit (testnet keys, encryption key, etc.)
+.env
+.env.*
+!.env.example
+
+# local database (holds encrypted wallet keys)
+*.db
+*.db-journal
+
+# pitch / planning / draft material (kept local, not published)
+Tani_Pitch.pptx
+build_deck.py
+preview/
+BRIEF.md
+BUSINESS-AND-ARCHITECTURE.md
+COMPETITORS.md
+IDEA.md
+PLAN.md
+WHY-STELLAR.md
+
+# misc
+__pycache__/
+.DS_Store
+*.log
