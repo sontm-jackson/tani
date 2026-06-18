@@ -24,7 +24,10 @@ export default defineConfig({
           { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
-      devOptions: { enabled: true },
+      // Service worker only in production builds. In dev it aggressively caches
+      // (stale index.html / favicons), which fights iteration. Test install via
+      // `npm run build && npm run preview`.
+      devOptions: { enabled: false },
     }),
   ],
   resolve: {
