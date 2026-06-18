@@ -56,6 +56,14 @@ export async function verifyOtp(phone: string, code: string) {
   return { token, farmerId: farmer.id };
 }
 
+// Issue a session for a phone that has been proven (by our OTP or Firebase).
+export async function issueSessionForPhone(phone: string) {
+  const farmer = await prisma.farmer.findUnique({ where: { phone } });
+  if (!farmer) throw new Error("This phone isn't registered. Ask your cooperative to add you.");
+  const token = jwt.sign({ sub: farmer.id }, ensureJwtSecret(), { expiresIn: "30d" });
+  return { token, farmerId: farmer.id };
+}
+
 // Resolve a bearer token to a farmer id. Returns null if missing/invalid.
 export function farmerIdFromToken(authHeader?: string): string | null {
   if (!authHeader?.startsWith("Bearer ")) return null;

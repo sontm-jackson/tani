@@ -34,6 +34,7 @@ export const api = {
   clearToken: () => { try { localStorage.removeItem(TOKEN_KEY); } catch {} },
   requestOtp: (phone: string) => req("/auth/request-otp", { method: "POST", body: JSON.stringify({ phone }) }),
   verifyOtp: (phone: string, code: string) => req("/auth/verify-otp", { method: "POST", body: JSON.stringify({ phone, code }) }),
+  firebaseLogin: (idToken: string) => req("/auth/firebase", { method: "POST", body: JSON.stringify({ idToken }) }),
 
   // ---- signed-in farmer (token-scoped) ----
   me: () => req("/me"),

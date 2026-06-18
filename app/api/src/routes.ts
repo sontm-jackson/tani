@@ -10,7 +10,9 @@ import { processEvent } from "./services/disburse.js";
 import { cashOut } from "./services/anchor.js";
 import { anchorInfo } from "./services/anchorInfo.js";
 import { newQrToken, verifyAndPay } from "./services/shipments.js";
-import { requestOtp, verifyOtp, farmerIdFromToken } from "./services/auth.js";
+import { requestOtp, verifyOtp, farmerIdFromToken, issueSessionForPhone } from "./services/auth.js";
+import { verifyFirebasePhone } from "./services/firebaseAuth.js";
+import { firebaseConfigured } from "./config.js";
 import { encrypt } from "./crypto.js";
 
 export const router = Router();
@@ -27,6 +29,17 @@ router.get("/health", (_req, res) => res.json({ ok: true, network: config.networ
 router.get("/anchor/info", wrap(async (_req, res) => res.json(await anchorInfo())));
 
 // ---- Auth (phone OTP login) ----
+// Tells the client which login flow to use.
+router.get("/auth/config", (_req, res) => res.json({ firebase: firebaseConfigured }));
+
+// Firebase phone auth: client verifies the phone with Firebase, sends us the ID token,
+// we verify it and issue our session.
+router.post("/auth/firebase", wrap(async (req, res) => {
+  const { idToken } = z.object({ idToken: z.string().min(10) }).parse(req.body);
+  const phone = await verifyFirebasePhone(idToken);
+  res.json(await issueSessionForPhone(phone));
+}));
+
 router.post("/auth/request-otp", wrap(async (req, res) => {
   const { phone } = z.object({ phone: z.string().min(3) }).parse(req.body);
   res.json(await requestOtp(phone.trim()));

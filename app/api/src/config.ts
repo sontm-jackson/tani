@@ -34,6 +34,15 @@ export const twilioConfigured = Boolean(config.twilio.sid && config.twilio.token
 export const speedSmsConfigured = Boolean(config.speedsms.token);
 export const smsConfigured = twilioConfigured || speedSmsConfigured;
 
+// Firebase (handles phone OTP delivery on the client; backend verifies the ID token).
+export const firebase = {
+  projectId: process.env.FIREBASE_PROJECT_ID ?? "",
+  clientEmail: process.env.FIREBASE_CLIENT_EMAIL ?? "",
+  // Stored with literal \n in .env — restore real newlines.
+  privateKey: (process.env.FIREBASE_PRIVATE_KEY ?? "").replace(/\\n/g, "\n"),
+};
+export const firebaseConfigured = Boolean(firebase.projectId && firebase.clientEmail && firebase.privateKey);
+
 export const networkPassphrase =
   config.network === "public" ? Networks.PUBLIC : Networks.TESTNET;
 

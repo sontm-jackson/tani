@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
 import { api, fmtUsdc, fmtVnd } from "@shared/api";
+import { firebaseEnabled, auth } from "./firebase";
 import { FarmerShipments } from "./FarmerShipments";
 import { PayoutCard } from "./PayoutCard";
 import { IconHome, IconShip, IconWallet } from "./icons";
@@ -24,6 +26,8 @@ export default function Farmer() {
   const [devCode, setDevCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
   function applyFarmer(f: any) {
     prevReceived.current = totalReceived(f);
@@ -41,10 +45,17 @@ export default function Farmer() {
     if (!phone.trim()) return;
     setBusy(true); setErr("");
     try {
-      const r = await api.requestOtp(phone.trim());
-      setDevCode(r.devCode ?? null);
+      if (firebaseEnabled && auth) {
+        if (!recaptchaRef.current) {
+          recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+        }
+        confirmationRef.current = await signInWithPhoneNumber(auth, phone.trim(), recaptchaRef.current);
+      } else {
+        const r = await api.requestOtp(phone.trim());
+        setDevCode(r.devCode ?? null);
+      }
       setStep("otp");
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(e.message ?? String(e)); }
     finally { setBusy(false); }
   }
 
@@ -52,11 +63,18 @@ export default function Farmer() {
     if (!code.trim()) return;
     setBusy(true); setErr("");
     try {
-      const r = await api.verifyOtp(phone.trim(), code.trim());
-      api.setToken(r.token);
+      let token: string;
+      if (firebaseEnabled && confirmationRef.current) {
+        const cred = await confirmationRef.current.confirm(code.trim());
+        const idToken = await cred.user.getIdToken();
+        token = (await api.firebaseLogin(idToken)).token;
+      } else {
+        token = (await api.verifyOtp(phone.trim(), code.trim())).token;
+      }
+      api.setToken(token);
       applyFarmer(await api.me());
       setStep("phone"); setCode(""); setDevCode(null);
-    } catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(e.message ?? String(e)); }
     finally { setBusy(false); }
   }
 
@@ -131,6 +149,7 @@ export default function Farmer() {
             </>
           )}
           {err && <div className="notice notice-err" style={{ width: "100%" }}>{err}</div>}
+          <div id="recaptcha-container" />
         </div>
       </div>
     );
