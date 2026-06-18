@@ -74,6 +74,26 @@ body { background: #e8e3d7; }
 .sec-title { font-size: 14px; margin: 22px 4px 10px; }
 .show-more { margin-top: 12px; }
 
+/* bottom sheet (contained within the app frame, slides up) */
+.sheet-overlay {
+  position: fixed; top: 0; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 460px; z-index: 50;
+  background: rgba(26, 36, 32, 0.45);
+  display: flex; align-items: flex-end;
+  animation: fade 0.18s ease;
+}
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.sheet {
+  width: 100%; background: var(--card);
+  border-radius: 22px 22px 0 0;
+  padding: 10px 22px calc(26px + env(safe-area-inset-bottom));
+  box-shadow: 0 -12px 40px rgba(26, 36, 32, 0.25);
+  max-height: 90vh; overflow-y: auto;
+  animation: sheetup 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes sheetup { from { transform: translateY(100%); } to { transform: none; } }
+.sheet-handle { width: 38px; height: 4px; border-radius: 3px; background: var(--line); margin: 2px auto 16px; }
+
 /* payout destination */
 .payout-summary { display: flex; align-items: center; gap: 12px; }
 .payout-provider { font-weight: 600; font-size: 15px; }

@@ -61,8 +61,9 @@ function PayoutModal({ farmer, onClose, onSaved }: any) {
 
   const providers = type === "bank" ? BANKS : WALLETS;
   return (
-    <div className="overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="sheet-overlay" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-handle" />
         <div className="eyebrow">Payout destination</div>
         <h2 style={{ margin: "2px 0 16px" }}>Where should we send your cash?</h2>
 
