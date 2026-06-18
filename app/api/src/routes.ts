@@ -10,6 +10,7 @@ import { processEvent } from "./services/disburse.js";
 import { cashOut } from "./services/anchor.js";
 import { anchorInfo } from "./services/anchorInfo.js";
 import { newQrToken, verifyAndPay } from "./services/shipments.js";
+import { requestOtp, verifyOtp, farmerIdFromToken } from "./services/auth.js";
 import { encrypt } from "./crypto.js";
 
 export const router = Router();
@@ -24,6 +25,78 @@ router.get("/health", (_req, res) => res.json({ ok: true, network: config.networ
 
 // Live anchor connectivity (SEP-1) — proves real anchor integration.
 router.get("/anchor/info", wrap(async (_req, res) => res.json(await anchorInfo())));
+
+// ---- Auth (phone OTP login) ----
+router.post("/auth/request-otp", wrap(async (req, res) => {
+  const { phone } = z.object({ phone: z.string().min(3) }).parse(req.body);
+  res.json(await requestOtp(phone.trim()));
+}));
+
+router.post("/auth/verify-otp", wrap(async (req, res) => {
+  const { phone, code } = z.object({ phone: z.string().min(3), code: z.string().min(4) }).parse(req.body);
+  res.json(await verifyOtp(phone.trim(), code.trim()));
+}));
+
+// Bearer-token guard: resolves the signed-in farmer from the JWT.
+const requireFarmer = (req: any, res: any, next: any) => {
+  const id = farmerIdFromToken(req.headers.authorization);
+  if (!id) return res.status(401).json({ error: "not signed in" });
+  req.farmerId = id;
+  next();
+};
+
+// ---- Me (authenticated farmer) ----
+router.get("/me", requireFarmer, wrap(async (req: any, res) => res.json(await farmerDetail(req.farmerId))));
+
+router.post("/me/cashout", requireFarmer, wrap(async (req: any, res) => {
+  const { amount } = z.object({ amount: z.number().positive() }).parse(req.body);
+  const result = await cashOut(req.farmerId, amount);
+  res.json({ ...result, explorer: result.txHash ? explorerTx(result.txHash) : null });
+}));
+
+router.post("/me/payout-method", requireFarmer, wrap(async (req: any, res) => {
+  const body = z
+    .object({
+      payoutType: z.enum(["bank", "momo"]),
+      payoutProvider: z.string().min(1),
+      payoutAccount: z.string().min(3),
+      payoutName: z.string().min(1),
+    })
+    .parse(req.body);
+  await prisma.farmer.update({ where: { id: req.farmerId }, data: body });
+  res.json(await farmerDetail(req.farmerId));
+}));
+
+router.get("/me/shipments", requireFarmer, wrap(async (req: any, res) => {
+  const list = await prisma.shipment.findMany({
+    where: { farmerId: req.farmerId },
+    include: { farmer: true },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json(list.map(shipmentView));
+}));
+
+router.post("/me/shipments", requireFarmer, wrap(async (req: any, res) => {
+  const body = z
+    .object({
+      commodity: z.string().default("coffee"),
+      variety: z.string().optional(),
+      claimedKg: z.number().positive(),
+      grade: z.string().optional(),
+      processing: z.string().optional(),
+      moisture: z.number().optional(),
+      certification: z.string().optional(),
+      harvestDate: z.string().optional(),
+    })
+    .parse(req.body);
+  const farmer = await prisma.farmer.findUnique({ where: { id: req.farmerId } });
+  if (!farmer) throw new Error("farmer not found");
+  const s = await prisma.shipment.create({
+    data: { operatorId: farmer.operatorId, farmerId: farmer.id, qrToken: newQrToken(), ...body },
+    include: { farmer: true },
+  });
+  res.json(shipmentView(s));
+}));
 
 // ---- Operator (single default operator in the demo) ----
 router.get("/operator", wrap(async (_req, res) => {

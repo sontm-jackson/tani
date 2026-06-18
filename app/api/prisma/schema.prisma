@@ -170,6 +170,18 @@ model Payment {
   createdAt      DateTime     @default(now())
 }
 
+// One-time passcodes for phone login (hashed, short-lived).
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
 // A farmer cashing out USDC to local currency via the anchor (simulated on testnet).
 model CashOut {
   id          String   @id @default(cuid())

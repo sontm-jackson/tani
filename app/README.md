@@ -46,8 +46,12 @@ npm install
 npm run dev                   # http://localhost:5174
 ```
 
-Open **http://localhost:5173** (cooperative) and **http://localhost:5174** (farmer, sign in with a
-demo phone e.g. `+84901000001`). In dev, each frontend proxies `/api` to the backend on :4000.
+Open **http://localhost:5173** (cooperative) and **http://localhost:5174** (farmer). In dev, each
+frontend proxies `/api` to the backend on :4000.
+
+**Farmer login is real phone OTP.** Enter a registered phone (e.g. `+84901000001`) → tap **Send
+code**. With no SMS provider configured, the app runs in dev mode and shows the code on screen so
+you can verify. Set `TWILIO_*` in `app/api/.env` to send real SMS in production.
 
 ## Deploying separately
 
@@ -63,7 +67,8 @@ set each project's **root directory** to `operator/` or `farmer/`). The backend 
 
 The headline flow is the **QR shipment cycle** — the full physical→digital→payment loop:
 
-1. **Farmer app** (:5174): sign in as `+84901000001`. Under **Ship a delivery**, click **Declare
+1. **Farmer app** (:5174): sign in with phone `+84901000001` → Send code → enter the dev code shown.
+   Under **Ship**, click **Create
    shipment**, fill in the coffee attributes (variety, weight, grade, moisture, certification),
    and **Generate QR**. That QR represents the bag the farmer ships.
 2. **Cooperative app** (:5173): under **Arrivals — scan to verify & pay**, the farmer-declared shipments
@@ -111,6 +116,10 @@ rule preset, and field mappings — not a new build. Coffee is the demo, not the
 
 | Method | Path | Purpose |
 |---|---|---|
+| POST | `/api/auth/request-otp` | farmer requests a login code (SMS / dev) |
+| POST | `/api/auth/verify-otp` | verify code → JWT session token |
+| GET | `/api/me` | signed-in farmer (token-scoped) |
+| POST | `/api/me/cashout` · `/me/payout-method` · `/me/shipments` | farmer actions (auth) |
 | GET | `/api/operator` | cooperative + live pool balance |
 | GET | `/api/anchor/info` | live anchor connectivity (SEP-1) |
 | POST | `/api/pool/fund` | mint USDC into the pool |

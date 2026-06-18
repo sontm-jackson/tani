@@ -4,10 +4,20 @@
 const origin = (import.meta as any).env?.VITE_API_URL ?? "";
 const base = `${origin}/api`;
 
+const TOKEN_KEY = "tani_token";
+function token(): string | null {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+}
+
 async function req(path: string, opts?: RequestInit) {
+  const t = token();
   const res = await fetch(base + path, {
-    headers: { "Content-Type": "application/json" },
     ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      ...(t ? { Authorization: `Bearer ${t}` } : {}),
+      ...(opts?.headers ?? {}),
+    },
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error ?? `request failed (${res.status})`);
@@ -17,6 +27,21 @@ async function req(path: string, opts?: RequestInit) {
 export const api = {
   health: () => req("/health"),
   operator: () => req("/operator"),
+
+  // ---- farmer auth (phone OTP) ----
+  hasToken: () => !!token(),
+  setToken: (t: string) => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} },
+  clearToken: () => { try { localStorage.removeItem(TOKEN_KEY); } catch {} },
+  requestOtp: (phone: string) => req("/auth/request-otp", { method: "POST", body: JSON.stringify({ phone }) }),
+  verifyOtp: (phone: string, code: string) => req("/auth/verify-otp", { method: "POST", body: JSON.stringify({ phone, code }) }),
+
+  // ---- signed-in farmer (token-scoped) ----
+  me: () => req("/me"),
+  meCashout: (amount: number) => req("/me/cashout", { method: "POST", body: JSON.stringify({ amount }) }),
+  meSetPayout: (body: { payoutType: string; payoutProvider: string; payoutAccount: string; payoutName: string }) =>
+    req("/me/payout-method", { method: "POST", body: JSON.stringify(body) }),
+  meShipments: () => req("/me/shipments"),
+  meCreateShipment: (body: any) => req("/me/shipments", { method: "POST", body: JSON.stringify(body) }),
   anchorInfo: () => req("/anchor/info"),
   fundPool: (amount: number) =>
     req("/pool/fund", { method: "POST", body: JSON.stringify({ amount }) }),

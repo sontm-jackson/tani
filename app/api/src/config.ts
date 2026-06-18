@@ -10,7 +10,20 @@ export const config = {
   issuerSecret: process.env.ISSUER_SECRET ?? "",
   anchorHomeDomain: process.env.ANCHOR_HOME_DOMAIN ?? "testanchor.stellar.org",
   port: Number(process.env.PORT ?? 4000),
+
+  // Auth
+  jwtSecret: process.env.JWT_SECRET ?? "",
+  otpTtlMinutes: Number(process.env.OTP_TTL_MINUTES ?? 5),
+
+  // SMS delivery (Twilio). If unset, OTP runs in dev mode (code logged + returned).
+  twilio: {
+    sid: process.env.TWILIO_ACCOUNT_SID ?? "",
+    token: process.env.TWILIO_AUTH_TOKEN ?? "",
+    from: process.env.TWILIO_FROM ?? "",
+  },
 };
+
+export const smsConfigured = Boolean(config.twilio.sid && config.twilio.token && config.twilio.from);
 
 export const networkPassphrase =
   config.network === "public" ? Networks.PUBLIC : Networks.TESTNET;

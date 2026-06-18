@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from "node:crypto";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 // AES-256-GCM encryption for secrets at rest (custodial keys, pool secret).
@@ -27,16 +27,29 @@ export function decrypt(blob: string): string {
   return Buffer.concat([decipher.update(Buffer.from(dataB, "base64")), decipher.final()]).toString("utf8");
 }
 
-// Ensure an ENCRYPTION_KEY exists in .env (called by seed). Returns the key hex.
-export function ensureEncryptionKey(): string {
-  if ((process.env.ENCRYPTION_KEY ?? "").length === 64) return process.env.ENCRYPTION_KEY!;
-  const k = randomBytes(32).toString("hex");
+// Ensure a generated secret exists in .env; create + persist it if missing.
+function ensureEnvSecret(key: string, bytes: number): string {
+  const existing = process.env[key] ?? "";
+  if (existing.length >= bytes * 2) return existing;
+  const v = randomBytes(bytes).toString("hex");
   const path = ".env";
   let lines = existsSync(path) ? readFileSync(path, "utf8").split(/\r?\n/) : [];
-  const idx = lines.findIndex((l) => l.startsWith("ENCRYPTION_KEY="));
-  if (idx >= 0) lines[idx] = `ENCRYPTION_KEY=${k}`;
-  else lines.push(`ENCRYPTION_KEY=${k}`);
+  const idx = lines.findIndex((l) => l.startsWith(`${key}=`));
+  if (idx >= 0) lines[idx] = `${key}=${v}`;
+  else lines.push(`${key}=${v}`);
   writeFileSync(path, lines.join("\n"));
-  process.env.ENCRYPTION_KEY = k;
-  return k;
+  process.env[key] = v;
+  return v;
+}
+
+export function ensureEncryptionKey(): string {
+  return ensureEnvSecret("ENCRYPTION_KEY", 32);
+}
+
+export function ensureJwtSecret(): string {
+  return ensureEnvSecret("JWT_SECRET", 32);
+}
+
+export function sha256(s: string): string {
+  return createHash("sha256").update(s).digest("hex");
 }

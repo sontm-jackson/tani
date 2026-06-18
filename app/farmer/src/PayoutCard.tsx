@@ -49,7 +49,7 @@ function PayoutModal({ farmer, onClose, onSaved }: any) {
     setBusy(true);
     setErr("");
     try {
-      const f = await api.setPayoutMethod(farmer.id, {
+      const f = await api.meSetPayout({
         payoutType: type, payoutProvider: provider, payoutAccount: account, payoutName: name,
       });
       onSaved(f);

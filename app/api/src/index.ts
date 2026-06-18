@@ -2,6 +2,11 @@ import express from "express";
 import cors from "cors";
 import { config } from "./config.js";
 import { router } from "./routes.js";
+import { ensureEncryptionKey, ensureJwtSecret } from "./crypto.js";
+
+// Make sure runtime secrets exist (created + persisted on first run).
+ensureEncryptionKey();
+ensureJwtSecret();
 
 const app = express();
 app.use(cors());

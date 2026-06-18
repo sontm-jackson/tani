@@ -17,21 +17,20 @@ function statusPill(s: string) {
   return <span className="pill pill-pending">In transit</span>;
 }
 
-export function FarmerShipments({ farmerId }: { farmerId: string }) {
+export function FarmerShipments() {
   const [ships, setShips] = useState<any[]>([]);
   const [view, setView] = useState<View>("list");
   const [shown, setShown] = useState(5);
 
   async function load() {
-    const all = await api.shipments();
-    setShips(all.filter((s: any) => s.farmerId === farmerId));
+    setShips(await api.meShipments());
   }
   useEffect(() => {
     load().catch(() => {});
-  }, [farmerId]);
+  }, []);
 
   if (view === "create") {
-    return <CreateShipment farmerId={farmerId} onCancel={() => setView("list")}
+    return <CreateShipment onCancel={() => setView("list")}
       onCreated={async (s: any) => { await load(); setView({ detail: s }); }} />;
   }
   if (typeof view === "object") {
@@ -67,7 +66,7 @@ export function FarmerShipments({ farmerId }: { farmerId: string }) {
   );
 }
 
-function CreateShipment({ farmerId, onCreated, onCancel }: any) {
+function CreateShipment({ onCreated, onCancel }: any) {
   const [variety, setVariety] = useState(VARIETIES[0]);
   const [claimedKg, setKg] = useState("");
   const [grade, setGrade] = useState(GRADES[1]);
@@ -80,8 +79,8 @@ function CreateShipment({ farmerId, onCreated, onCancel }: any) {
   async function submit() {
     setBusy(true); setErr("");
     try {
-      const s = await api.createShipment({
-        farmerId, commodity: "coffee", variety, claimedKg: Number(claimedKg),
+      const s = await api.meCreateShipment({
+        commodity: "coffee", variety, claimedKg: Number(claimedKg),
         grade, processing, moisture: Number(moisture), certification,
         harvestDate: new Date().toISOString().slice(0, 10),
       });

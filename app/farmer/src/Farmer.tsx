@@ -4,7 +4,6 @@ import { FarmerShipments } from "./FarmerShipments";
 import { PayoutCard } from "./PayoutCard";
 import { IconHome, IconShip, IconWallet } from "./icons";
 
-const DEMO_PHONES = ["+84901000001", "+84901000003", "+84901000007"];
 const RATE = 25400;
 
 function totalReceived(f: any): number {
@@ -12,35 +11,65 @@ function totalReceived(f: any): number {
 }
 
 export default function Farmer() {
-  const [phone, setPhone] = useState("");
+  const [booting, setBooting] = useState(true);
   const [farmer, setFarmer] = useState<any>(null);
-  const [busy, setBusy] = useState(false);
-  const [loginErr, setLoginErr] = useState("");
   const [tab, setTab] = useState<"home" | "ship" | "wallet">("home");
   const [justPaid, setJustPaid] = useState<number | null>(null);
   const prevReceived = useRef<number | null>(null);
 
-  async function login(p?: string) {
-    const ph = (p ?? phone).trim();
-    if (!ph) return;
-    setBusy(true);
-    setLoginErr("");
+  // login state
+  const [step, setStep] = useState<"phone" | "otp">("phone");
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  function applyFarmer(f: any) {
+    prevReceived.current = totalReceived(f);
+    setFarmer(f);
+    setTab("home");
+  }
+
+  // auto-login from a saved session
+  useEffect(() => {
+    if (!api.hasToken()) { setBooting(false); return; }
+    api.me().then(applyFarmer).catch(() => api.clearToken()).finally(() => setBooting(false));
+  }, []);
+
+  async function sendCode() {
+    if (!phone.trim()) return;
+    setBusy(true); setErr("");
     try {
-      const f = await api.farmerByPhone(ph);
-      prevReceived.current = totalReceived(f);
-      setFarmer(f);
-      setPhone(ph);
-      setTab("home");
-    } catch (e: any) {
-      setLoginErr(e.message);
-    } finally {
-      setBusy(false);
-    }
+      const r = await api.requestOtp(phone.trim());
+      setDevCode(r.devCode ?? null);
+      setStep("otp");
+    } catch (e: any) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
+
+  async function verify() {
+    if (!code.trim()) return;
+    setBusy(true); setErr("");
+    try {
+      const r = await api.verifyOtp(phone.trim(), code.trim());
+      api.setToken(r.token);
+      applyFarmer(await api.me());
+      setStep("phone"); setCode(""); setDevCode(null);
+    } catch (e: any) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
+
+  function signOut() {
+    api.clearToken();
+    setFarmer(null);
+    prevReceived.current = null;
+    setStep("phone"); setPhone(""); setCode("");
   }
 
   async function refresh() {
     if (!farmer) return;
-    const f = await api.farmer(farmer.id);
+    const f = await api.me();
     const t = totalReceived(f);
     if (prevReceived.current != null && t > prevReceived.current + 1e-9) {
       setJustPaid(t - prevReceived.current);
@@ -56,27 +85,52 @@ export default function Farmer() {
     return () => window.clearInterval(id);
   }, [farmer?.id]);
 
-  // ---- sign in ----
+  if (booting) {
+    return <div className="mobile"><div className="spin">Loading…</div></div>;
+  }
+
+  // ---- sign in (phone OTP) ----
   if (!farmer) {
     return (
       <div className="mobile">
         <div className="signin">
           <img src="/icon-192.png" width={72} height={72} style={{ borderRadius: 18 }} alt="Tani" />
           <h1>Tani</h1>
-          <p className="muted">Get paid the moment your delivery is verified.</p>
-          <div className="field" style={{ width: "100%", marginTop: 18 }}>
-            <input placeholder="Phone number" value={phone}
-              onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => e.key === "Enter" && login()} />
-          </div>
-          <button className="btn-green block" onClick={() => login()} disabled={busy}>
-            {busy ? "Checking…" : "Continue"}
-          </button>
-          {loginErr && <div className="notice notice-err" style={{ width: "100%" }}>{loginErr}</div>}
-          <div className="muted demo-links">
-            {DEMO_PHONES.map((p, i) => (
-              <span key={p}>{i > 0 && " · "}<a href="#" onClick={(e) => { e.preventDefault(); login(p); }}>{p}</a></span>
-            ))}
-          </div>
+          {step === "phone" ? (
+            <>
+              <p className="muted">Sign in with your phone. We'll text you a code.</p>
+              <div className="field" style={{ width: "100%", marginTop: 18 }}>
+                <input type="tel" placeholder="Phone number (e.g. +84901000001)" value={phone}
+                  onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendCode()} />
+              </div>
+              <button className="btn-green block" onClick={sendCode} disabled={busy || !phone.trim()}>
+                {busy ? "Sending…" : "Send code"}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="muted">Enter the 6-digit code sent to<br /><b>{phone}</b></p>
+              <div className="field" style={{ width: "100%", marginTop: 18 }}>
+                <input type="tel" inputMode="numeric" maxLength={6} placeholder="••••••" value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                  onKeyDown={(e) => e.key === "Enter" && verify()}
+                  style={{ textAlign: "center", letterSpacing: 8, fontSize: 22 }} />
+              </div>
+              <button className="btn-green block" onClick={verify} disabled={busy || code.length < 4}>
+                {busy ? "Verifying…" : "Verify"}
+              </button>
+              <button className="link" style={{ marginTop: 12, background: "none", border: "none" }}
+                onClick={() => { setStep("phone"); setCode(""); setErr(""); }}>
+                Change number
+              </button>
+              {devCode && (
+                <div className="notice notice-ok" style={{ width: "100%", marginTop: 14 }}>
+                  Dev mode (no SMS provider): your code is <b>{devCode}</b>
+                </div>
+              )}
+            </>
+          )}
+          {err && <div className="notice notice-err" style={{ width: "100%" }}>{err}</div>}
         </div>
       </div>
     );
@@ -89,12 +143,12 @@ export default function Farmer() {
         <span className="brand">Tani<span className="dot">.</span></span>
         <span className="appbar-sub">{farmer.name.split(" ").slice(-1)[0]}</span>
         <span className="spacer" />
-        <button onClick={() => { setFarmer(null); prevReceived.current = null; }}>Sign out</button>
+        <button onClick={signOut}>Sign out</button>
       </div>
 
       <div className="appbody">
         {tab === "home" && <Home farmer={farmer} justPaid={justPaid} goWallet={() => setTab("wallet")} />}
-        {tab === "ship" && <FarmerShipments farmerId={farmer.id} />}
+        {tab === "ship" && <FarmerShipments />}
         {tab === "wallet" && <Wallet farmer={farmer} onChange={setFarmer} refresh={refresh} />}
       </div>
 
@@ -156,7 +210,7 @@ function Wallet({ farmer, onChange, refresh }: any) {
     if (!amt || amt <= 0) return;
     setBusy(true); setNotice(null);
     try {
-      const r = await api.cashOut(farmer.id, amt);
+      const r = await api.meCashout(amt);
       setNotice({ ok: r.status === "success", msg: r.status === "success" ? `${fmtUsdc(r.amountUsdc)} USDC → ${fmtVnd(r.amountLocal)} ₫ sent to ${r.destMasked}` : `Cash-out ${r.status}` });
       setAmount("");
       await refresh();
