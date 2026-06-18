@@ -123,6 +123,33 @@ input, select {
   border-radius: 9px; background: #fff; width: 100%;
 }
 input:focus, select:focus { outline: none; border-color: var(--green-2); }
+
+/* custom Select dropdown */
+.sel { position: relative; }
+.sel-trigger {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: #fff; border: 1px solid var(--line); border-radius: 9px;
+  padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; text-align: left;
+}
+.sel.open .sel-trigger { border-color: var(--green-2); }
+.sel-ph { color: var(--muted); }
+.sel-chev { color: var(--muted); transition: transform 0.15s; flex-shrink: 0; }
+.sel.open .sel-chev { transform: rotate(180deg); }
+.sel-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(26, 36, 32, 0.16); padding: 5px; max-height: 260px; overflow-y: auto;
+  animation: selpop 0.12s ease;
+}
+@keyframes selpop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.sel-opt {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: none; border: none; border-radius: 8px; padding: 10px 11px;
+  font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; text-align: left;
+}
+.sel-opt:hover { background: var(--green-tint); }
+.sel-opt.on { color: var(--green-2); font-weight: 600; }
+.sel-opt svg { color: var(--green-2); flex-shrink: 0; }
 .field { margin-bottom: 12px; }
 .field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
 

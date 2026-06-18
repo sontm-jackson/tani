@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, fmtUsdc } from "@shared/api";
+import { Select } from "./Select";
 import { Qr } from "./Qr";
 import { downloadQr, printLabel } from "./qrUtils";
 
@@ -99,7 +100,7 @@ function CreateShipment({ farmerId, onCreated, onCancel }: any) {
       <div className="form-group">
         <div className="form-group-label">Product</div>
         <div className="field"><label>Variety</label>
-          <select value={variety} onChange={(e) => setVariety(e.target.value)}>{VARIETIES.map((v) => <option key={v}>{v}</option>)}</select></div>
+          <Select value={variety} onChange={setVariety} options={VARIETIES} /></div>
         <div className="field"><label>Weight (kg)</label>
           <input type="number" inputMode="decimal" value={claimedKg} onChange={(e) => setKg(e.target.value)} placeholder="240" /></div>
       </div>
@@ -107,13 +108,13 @@ function CreateShipment({ farmerId, onCreated, onCancel }: any) {
       <div className="form-group">
         <div className="form-group-label">Quality</div>
         <div className="field"><label>Grade</label>
-          <select value={grade} onChange={(e) => setGrade(e.target.value)}>{GRADES.map((v) => <option key={v}>{v}</option>)}</select></div>
+          <Select value={grade} onChange={setGrade} options={GRADES} /></div>
         <div className="field"><label>Processing</label>
-          <select value={processing} onChange={(e) => setProcessing(e.target.value)}>{PROCESSING.map((v) => <option key={v}>{v}</option>)}</select></div>
+          <Select value={processing} onChange={setProcessing} options={PROCESSING} /></div>
         <div className="field"><label>Moisture %</label>
           <input type="number" inputMode="decimal" value={moisture} onChange={(e) => setMoisture(e.target.value)} /></div>
         <div className="field"><label>Certification</label>
-          <select value={certification} onChange={(e) => setCert(e.target.value)}>{CERTS.map((v) => <option key={v}>{v}</option>)}</select></div>
+          <Select value={certification} onChange={setCert} options={CERTS} /></div>
       </div>
 
       {err && <div className="notice notice-err">{err}</div>}

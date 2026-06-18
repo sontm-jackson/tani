@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "@shared/api";
+import { Select } from "./Select";
 
 const BANKS = ["Vietcombank", "Techcombank", "BIDV", "VietinBank", "Agribank", "MB Bank", "ACB"];
 const WALLETS = ["MoMo", "ZaloPay", "Viettel Money"];
@@ -60,9 +61,7 @@ export function PayoutCard({ farmer, onSaved }: any) {
       <div className="row">
         <div className="field">
           <label>{type === "bank" ? "Bank" : "Wallet"}</label>
-          <select value={provider} onChange={(e) => setProvider(e.target.value)}>
-            {providers.map((p) => <option key={p}>{p}</option>)}
-          </select>
+          <Select value={provider} onChange={setProvider} options={providers} />
         </div>
         <div className="field">
           <label>{type === "bank" ? "Account number" : "Phone number"}</label>
