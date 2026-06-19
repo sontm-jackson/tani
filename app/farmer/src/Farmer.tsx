@@ -132,9 +132,9 @@ export default function Farmer() {
               <p className="signin-sub">Sign in with your phone number</p>
               <div className="phone-field">
                 <span className="phone-prefix">+84</span>
-                <input className="phone-input" type="tel" inputMode="numeric" autoFocus
+                <input className="phone-input" type="tel" inputMode="numeric" autoFocus maxLength={10}
                   placeholder="912 345 678" value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").replace(/^0+/, ""))}
                   onKeyDown={(e) => e.key === "Enter" && sendCode()} />
               </div>
               <button className="btn-green block" onClick={sendCode} disabled={busy || e164.length < 11}>
