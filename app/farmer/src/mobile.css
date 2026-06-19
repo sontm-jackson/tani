@@ -79,6 +79,12 @@ body { background: #e8e3d7; }
 }
 .otp-input:focus { outline: none; border-color: var(--green-2); }
 
+.reg-input {
+  width: 100%; height: 54px; border: 1px solid var(--line); border-radius: 11px;
+  padding: 0 14px; font-size: 15px; margin-bottom: 14px; background: #fff;
+}
+.reg-input:focus { outline: none; border-color: var(--green-2); }
+
 .signin-link { margin-top: 14px; background: none; border: none; }
 .signin-msg { width: 100%; margin-top: 16px; padding: 10px 12px; border-radius: 9px; font-size: 13px; }
 .signin-msg.err { background: #f7e3e1; color: var(--red); }

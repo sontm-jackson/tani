@@ -10,8 +10,9 @@ import { processEvent } from "./services/disburse.js";
 import { cashOut } from "./services/anchor.js";
 import { anchorInfo } from "./services/anchorInfo.js";
 import { newQrToken, verifyAndPay } from "./services/shipments.js";
-import { requestOtp, verifyOtp, farmerIdFromToken, issueSessionForPhone } from "./services/auth.js";
+import { requestOtp, verifyOtp, consumeOtp, farmerIdFromToken, issueSessionForPhone } from "./services/auth.js";
 import { verifyFirebasePhone } from "./services/firebaseAuth.js";
+import { provisionFarmer } from "./services/farmers.js";
 import { firebaseConfigured } from "./config.js";
 import { encrypt } from "./crypto.js";
 
@@ -37,6 +38,31 @@ router.get("/auth/config", (_req, res) => res.json({ firebase: firebaseConfigure
 router.post("/auth/firebase", wrap(async (req, res) => {
   const { idToken } = z.object({ idToken: z.string().min(10) }).parse(req.body);
   const phone = await verifyFirebasePhone(idToken);
+  res.json(await issueSessionForPhone(phone));
+}));
+
+// Self-registration (phone proven via Firebase) → creates the farmer + wallet, then signs in.
+router.post("/auth/register-firebase", wrap(async (req, res) => {
+  const body = z
+    .object({ idToken: z.string().min(10), name: z.string().min(1), village: z.string().optional() })
+    .parse(req.body);
+  const phone = await verifyFirebasePhone(body.idToken);
+  const op = await prisma.operator.findFirst();
+  if (!op) throw new Error("no operator");
+  await provisionFarmer(op.id, { name: body.name, phone, village: body.village });
+  res.json(await issueSessionForPhone(phone));
+}));
+
+// Self-registration via dev OTP (when Firebase isn't configured).
+router.post("/auth/register-otp", wrap(async (req, res) => {
+  const body = z
+    .object({ phone: z.string().min(3), code: z.string().min(4), name: z.string().min(1), village: z.string().optional() })
+    .parse(req.body);
+  const phone = body.phone.trim();
+  await consumeOtp(phone, body.code.trim());
+  const op = await prisma.operator.findFirst();
+  if (!op) throw new Error("no operator");
+  await provisionFarmer(op.id, { name: body.name, phone, village: body.village });
   res.json(await issueSessionForPhone(phone));
 }));
 
@@ -182,17 +208,7 @@ router.post("/farmers", wrap(async (req, res) => {
     .parse(req.body);
   const op = await prisma.operator.findFirst();
   if (!op) throw new Error("no operator");
-  const kp = await provisionWallet(usdc());
-  const farmer = await prisma.farmer.create({
-    data: {
-      operatorId: op.id,
-      name: body.name,
-      phone: body.phone,
-      village: body.village,
-      wallet: { create: { publicKey: kp.publicKey, secret: encrypt(kp.secret), trustline: true } },
-    },
-    include: { wallet: true },
-  });
+  const farmer = await provisionFarmer(op.id, body);
   res.json({ id: farmer.id, name: farmer.name, phone: farmer.phone, village: farmer.village });
 }));
 

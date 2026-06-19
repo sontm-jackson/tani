@@ -27,10 +27,13 @@ export default function Farmer() {
   const [justPaid, setJustPaid] = useState<number | null>(null);
   const prevReceived = useRef<number | null>(null);
 
-  // login state
+  // login / register state
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [village, setVillage] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -76,12 +79,17 @@ export default function Farmer() {
     setBusy(true); setErr("");
     try {
       let token: string;
+      const info = { name: name.trim(), village: village.trim() };
       if (firebaseEnabled && confirmationRef.current) {
         const cred = await confirmationRef.current.confirm(code.trim());
         const idToken = await cred.user.getIdToken();
-        token = (await api.firebaseLogin(idToken)).token;
+        token = mode === "register"
+          ? (await api.registerFirebase(idToken, info)).token
+          : (await api.firebaseLogin(idToken)).token;
       } else {
-        token = (await api.verifyOtp(toE164(phone), code.trim())).token;
+        token = mode === "register"
+          ? (await api.registerOtp(toE164(phone), code.trim(), info)).token
+          : (await api.verifyOtp(toE164(phone), code.trim())).token;
       }
       api.setToken(token);
       applyFarmer(await api.me());
@@ -95,6 +103,7 @@ export default function Farmer() {
     setFarmer(null);
     prevReceived.current = null;
     setStep("phone"); setPhone(""); setCode("");
+    setMode("login"); setName(""); setVillage("");
   }
 
   async function refresh() {
@@ -129,7 +138,13 @@ export default function Farmer() {
           <h1>Tani</h1>
           {step === "phone" ? (
             <>
-              <p className="signin-sub">Sign in with your phone number</p>
+              <p className="signin-sub">{mode === "register" ? "Create your farmer account" : "Sign in with your phone number"}</p>
+              {mode === "register" && (
+                <>
+                  <input className="reg-input" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+                  <input className="reg-input" placeholder="Village (optional)" value={village} onChange={(e) => setVillage(e.target.value)} />
+                </>
+              )}
               <div className="phone-field">
                 <span className="phone-prefix">+84</span>
                 <input className="phone-input" type="tel" inputMode="numeric" autoFocus maxLength={10}
@@ -137,8 +152,12 @@ export default function Farmer() {
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").replace(/^0+/, ""))}
                   onKeyDown={(e) => e.key === "Enter" && sendCode()} />
               </div>
-              <button className="btn-green block" onClick={sendCode} disabled={busy || e164.length < 11}>
+              <button className="btn-green block" onClick={sendCode}
+                disabled={busy || e164.length < 11 || (mode === "register" && !name.trim())}>
                 {busy ? "Sending…" : "Send code"}
+              </button>
+              <button className="link signin-link" onClick={() => { setMode(mode === "login" ? "register" : "login"); setErr(""); }}>
+                {mode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}
               </button>
             </>
           ) : (

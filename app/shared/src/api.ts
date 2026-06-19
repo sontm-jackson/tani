@@ -35,6 +35,10 @@ export const api = {
   requestOtp: (phone: string) => req("/auth/request-otp", { method: "POST", body: JSON.stringify({ phone }) }),
   verifyOtp: (phone: string, code: string) => req("/auth/verify-otp", { method: "POST", body: JSON.stringify({ phone, code }) }),
   firebaseLogin: (idToken: string) => req("/auth/firebase", { method: "POST", body: JSON.stringify({ idToken }) }),
+  registerFirebase: (idToken: string, info: { name: string; village?: string }) =>
+    req("/auth/register-firebase", { method: "POST", body: JSON.stringify({ idToken, ...info }) }),
+  registerOtp: (phone: string, code: string, info: { name: string; village?: string }) =>
+    req("/auth/register-otp", { method: "POST", body: JSON.stringify({ phone, code, ...info }) }),
 
   // ---- signed-in farmer (token-scoped) ----
   me: () => req("/me"),

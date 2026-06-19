@@ -7,14 +7,8 @@ import { sendSms } from "./sms.js";
 
 const MAX_ATTEMPTS = 5;
 
-// Request a one-time code for a phone. The phone must belong to a farmer the
-// cooperative has onboarded (farmers don't self-provision wallets).
+// Request a one-time code for a phone (used by both login and self-registration).
 export async function requestOtp(phone: string) {
-  const farmer = await prisma.farmer.findUnique({ where: { phone } });
-  if (!farmer) {
-    throw new Error("This phone isn't registered. Ask your cooperative to add you.");
-  }
-
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const expiresAt = new Date(Date.now() + config.otpTtlMinutes * 60_000);
 
@@ -28,12 +22,9 @@ export async function requestOtp(phone: string) {
   return { sent: true, devCode: smsConfigured ? undefined : code };
 }
 
-// Verify a code and issue a session token (JWT).
-export async function verifyOtp(phone: string, code: string) {
-  const otp = await prisma.otpCode.findFirst({
-    where: { phone },
-    orderBy: { createdAt: "desc" },
-  });
+// Validate a code (and consume it). Throws on failure. Does not require a farmer.
+export async function consumeOtp(phone: string, code: string) {
+  const otp = await prisma.otpCode.findFirst({ where: { phone }, orderBy: { createdAt: "desc" } });
   if (!otp) throw new Error("No code requested for this phone. Request one first.");
   if (otp.expiresAt < new Date()) {
     await prisma.otpCode.delete({ where: { id: otp.id } });
@@ -47,19 +38,19 @@ export async function verifyOtp(phone: string, code: string) {
     await prisma.otpCode.update({ where: { id: otp.id }, data: { attempts: otp.attempts + 1 } });
     throw new Error("Incorrect code.");
   }
-
-  const farmer = await prisma.farmer.findUnique({ where: { phone } });
-  if (!farmer) throw new Error("Farmer not found.");
-
   await prisma.otpCode.delete({ where: { id: otp.id } });
-  const token = jwt.sign({ sub: farmer.id }, ensureJwtSecret(), { expiresIn: "30d" });
-  return { token, farmerId: farmer.id };
+}
+
+// Verify a code and issue a session token (for an existing farmer).
+export async function verifyOtp(phone: string, code: string) {
+  await consumeOtp(phone, code);
+  return issueSessionForPhone(phone);
 }
 
 // Issue a session for a phone that has been proven (by our OTP or Firebase).
 export async function issueSessionForPhone(phone: string) {
   const farmer = await prisma.farmer.findUnique({ where: { phone } });
-  if (!farmer) throw new Error("This phone isn't registered. Ask your cooperative to add you.");
+  if (!farmer) throw new Error("No account for this phone yet. Tap “Create an account”.");
   const token = jwt.sign({ sub: farmer.id }, ensureJwtSecret(), { expiresIn: "30d" });
   return { token, farmerId: farmer.id };
 }
