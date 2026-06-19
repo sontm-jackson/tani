@@ -27,6 +27,9 @@ async function req(path: string, opts?: RequestInit) {
 export const api = {
   health: () => req("/health"),
   operator: () => req("/operator"),
+  operatorLogin: (email: string, password: string) =>
+    req("/operator/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  approveFarmer: (id: string) => req(`/farmers/${id}/approve`, { method: "POST" }),
 
   // ---- farmer auth (phone OTP) ----
   hasToken: () => !!token(),

@@ -25,6 +25,9 @@ export async function verifyAndPay(shipmentId: string, input: VerifyInput) {
   if (!s) throw new Error("shipment not found");
   if (s.status === "paid") throw new Error("shipment already paid");
   if (!s.farmer.wallet) throw new Error("farmer has no wallet");
+  if (input.accept && s.farmer.status !== "active") {
+    throw new Error("This farmer is pending — approve them in Farmers before paying.");
+  }
 
   const discJson = input.discrepancies?.length ? JSON.stringify(input.discrepancies) : null;
 

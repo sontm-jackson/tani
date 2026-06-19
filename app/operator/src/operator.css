@@ -1,0 +1,43 @@
+/* Cooperative dashboard — app bar, tabs, login */
+
+.op-bar {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--green); color: #fff;
+}
+.op-bar-inner { display: flex; align-items: center; gap: 14px; height: 58px; }
+.op-brand { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; }
+.op-brand .dot { color: var(--amber); }
+.op-co { color: #cfe0d7; font-size: 14px; }
+.op-bar .spacer { flex: 1; }
+.op-signout {
+  background: rgba(255, 255, 255, 0.14); color: #fff; border: none;
+  border-radius: 8px; padding: 8px 14px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+.op-signout:hover { background: rgba(255, 255, 255, 0.24); }
+
+.op-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-top: 4px; }
+.op-tabs button {
+  background: none; border: none; cursor: pointer;
+  padding: 14px 16px; font-size: 14.5px; font-weight: 600; color: var(--muted);
+  border-bottom: 2.5px solid transparent; margin-bottom: -1px;
+  display: flex; align-items: center; gap: 7px;
+}
+.op-tabs button:hover { color: var(--ink); }
+.op-tabs button.on { color: var(--green); border-bottom-color: var(--amber); }
+.tab-badge { background: var(--amber); color: #2a2110; font-size: 11px; font-weight: 700; border-radius: 10px; padding: 1px 7px; }
+
+.op-body { padding: 26px 0 80px; }
+.op-body .section:first-child { margin-top: 0; }
+
+/* login */
+.op-login {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: #ece7da;
+}
+.op-login-card {
+  width: 100%; max-width: 380px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 32px 30px;
+}
+.op-login-card h1 { font-size: 21px; margin: 12px 0 2px; }
+.op-login-card p { margin: 0 0 18px; font-size: 13.5px; }
+.demo-hint { font-size: 12.5px; margin-top: 16px; text-align: center; }

@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { Asset } from "@stellar/stellar-sdk";
 import { prisma } from "./db.js";
 import { config } from "./config.js";
-import { encrypt, ensureEncryptionKey } from "./crypto.js";
+import { encrypt, ensureEncryptionKey, hashPassword } from "./crypto.js";
 import { createKeypair, fundWithFriendbot, setTrustline, getAssetBalance, sleep } from "./stellar/account.js";
 import { issueAsset } from "./stellar/payments.js";
 import { provisionWallet } from "./services/custody.js";
@@ -73,6 +73,8 @@ async function main() {
     data: {
       name: "Lâm Đồng Coffee Cooperative",
       region: "Central Highlands, Vietnam",
+      email: "coop@tani.app",
+      passwordHash: hashPassword("tani1234"),
       poolPublicKey: pool.publicKey,
       poolSecret: encrypt(pool.secret),
     },
@@ -96,6 +98,22 @@ async function main() {
     byPhone[f.phone] = farmer.id;
     console.log("ok");
     await sleep(300);
+  }
+
+  // 3b. One self-registered (pending) farmer to demo the approval flow
+  console.log("   + 1 pending (self-registered) farmer...");
+  {
+    const kp = await provisionWallet(USDC);
+    await prisma.farmer.create({
+      data: {
+        operatorId: operator.id,
+        name: "Lê Thị Mới",
+        phone: "+84905555000",
+        village: "Bảo Lộc",
+        status: "pending",
+        wallet: { create: { publicKey: kp.publicKey, secret: encrypt(kp.secret), trustline: true } },
+      },
+    });
   }
 
   // 4. Vertical A — coffee
@@ -149,8 +167,9 @@ async function main() {
   const riceKg = FARMERS.reduce((s, f) => s + f.rice, 0);
   console.log("\nSeed complete.");
   console.log(`  Operator : ${operator.name}`);
+  console.log(`  Login    : coop@tani.app  /  tani1234   (cooperative dashboard)`);
   console.log(`  Pool     : ${poolBal} USDC`);
-  console.log(`  Farmers  : ${FARMERS.length}  (secrets encrypted at rest)`);
+  console.log(`  Farmers  : ${FARMERS.length} active + 1 pending (secrets encrypted at rest)`);
   console.log(`  Coffee   : LOT-2026-001 · ${coffeeKg}kg · pays ${coffeeKg * 0.5} USDC`);
   console.log(`  Rice     : LOT-RICE-001 · ${riceKg}kg · pays ${(riceKg * 0.08).toFixed(2)} USDC`);
   console.log("\nStart the API (npm run dev), then verify a lot from the dashboard.");

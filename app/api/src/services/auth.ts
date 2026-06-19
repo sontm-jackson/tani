@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import { randomInt } from "node:crypto";
 import { prisma } from "../db.js";
 import { config, smsConfigured } from "../config.js";
-import { sha256, ensureJwtSecret } from "../crypto.js";
+import { sha256, ensureJwtSecret, verifyPassword } from "../crypto.js";
 import { sendSms } from "./sms.js";
 
 const MAX_ATTEMPTS = 5;
@@ -51,16 +51,36 @@ export async function verifyOtp(phone: string, code: string) {
 export async function issueSessionForPhone(phone: string) {
   const farmer = await prisma.farmer.findUnique({ where: { phone } });
   if (!farmer) throw new Error("No account for this phone yet. Tap “Create an account”.");
-  const token = jwt.sign({ sub: farmer.id }, ensureJwtSecret(), { expiresIn: "30d" });
+  const token = jwt.sign({ sub: farmer.id, role: "farmer" }, ensureJwtSecret(), { expiresIn: "30d" });
   return { token, farmerId: farmer.id };
 }
 
-// Resolve a bearer token to a farmer id. Returns null if missing/invalid.
+// Cooperative staff login (email + password) → operator session token.
+export async function operatorLogin(email: string, password: string) {
+  const op = await prisma.operator.findUnique({ where: { email } });
+  if (!op || !op.passwordHash || !verifyPassword(password, op.passwordHash)) {
+    throw new Error("Invalid email or password.");
+  }
+  const token = jwt.sign({ sub: op.id, role: "operator" }, ensureJwtSecret(), { expiresIn: "7d" });
+  return { token, name: op.name };
+}
+
+// Resolve a bearer token to a farmer id (rejects operator tokens). Null if invalid.
 export function farmerIdFromToken(authHeader?: string): string | null {
+  const p = decodeToken(authHeader);
+  return p && p.role !== "operator" ? p.sub ?? null : null;
+}
+
+// Resolve a bearer token to an operator id. Null unless it's an operator token.
+export function operatorIdFromToken(authHeader?: string): string | null {
+  const p = decodeToken(authHeader);
+  return p && p.role === "operator" ? p.sub ?? null : null;
+}
+
+function decodeToken(authHeader?: string): { sub?: string; role?: string } | null {
   if (!authHeader?.startsWith("Bearer ")) return null;
   try {
-    const payload = jwt.verify(authHeader.slice(7), ensureJwtSecret()) as { sub?: string };
-    return payload.sub ?? null;
+    return jwt.verify(authHeader.slice(7), ensureJwtSecret()) as { sub?: string; role?: string };
   } catch {
     return null;
   }

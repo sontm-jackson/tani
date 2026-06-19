@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, createHash } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes, createHash, scryptSync, timingSafeEqual } from "node:crypto";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 // AES-256-GCM encryption for secrets at rest (custodial keys, pool secret).
@@ -52,4 +52,17 @@ export function ensureJwtSecret(): string {
 
 export function sha256(s: string): string {
   return createHash("sha256").update(s).digest("hex");
+}
+
+// Password hashing (scrypt). Format: "salt:hash".
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
+}
+export function verifyPassword(password: string, stored: string): boolean {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const test = scryptSync(password, salt, 64);
+  const orig = Buffer.from(hash, "hex");
+  return test.length === orig.length && timingSafeEqual(test, orig);
 }

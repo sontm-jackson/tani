@@ -10,7 +10,7 @@ import { processEvent } from "./services/disburse.js";
 import { cashOut } from "./services/anchor.js";
 import { anchorInfo } from "./services/anchorInfo.js";
 import { newQrToken, verifyAndPay } from "./services/shipments.js";
-import { requestOtp, verifyOtp, consumeOtp, farmerIdFromToken, issueSessionForPhone } from "./services/auth.js";
+import { requestOtp, verifyOtp, consumeOtp, farmerIdFromToken, issueSessionForPhone, operatorLogin, operatorIdFromToken } from "./services/auth.js";
 import { verifyFirebasePhone } from "./services/firebaseAuth.js";
 import { provisionFarmer } from "./services/farmers.js";
 import { firebaseConfigured } from "./config.js";
@@ -49,7 +49,7 @@ router.post("/auth/register-firebase", wrap(async (req, res) => {
   const phone = await verifyFirebasePhone(body.idToken);
   const op = await prisma.operator.findFirst();
   if (!op) throw new Error("no operator");
-  await provisionFarmer(op.id, { name: body.name, phone, village: body.village });
+  await provisionFarmer(op.id, { name: body.name, phone, village: body.village }, "pending");
   res.json(await issueSessionForPhone(phone));
 }));
 
@@ -62,7 +62,7 @@ router.post("/auth/register-otp", wrap(async (req, res) => {
   await consumeOtp(phone, body.code.trim());
   const op = await prisma.operator.findFirst();
   if (!op) throw new Error("no operator");
-  await provisionFarmer(op.id, { name: body.name, phone, village: body.village });
+  await provisionFarmer(op.id, { name: body.name, phone, village: body.village }, "pending");
   res.json(await issueSessionForPhone(phone));
 }));
 
@@ -83,6 +83,20 @@ const requireFarmer = (req: any, res: any, next: any) => {
   req.farmerId = id;
   next();
 };
+
+// Cooperative staff guard.
+const requireOperator = (req: any, res: any, next: any) => {
+  const id = operatorIdFromToken(req.headers.authorization);
+  if (!id) return res.status(401).json({ error: "not signed in" });
+  req.operatorId = id;
+  next();
+};
+
+// ---- Cooperative staff auth (email + password) ----
+router.post("/operator/login", wrap(async (req, res) => {
+  const { email, password } = z.object({ email: z.string().email(), password: z.string().min(1) }).parse(req.body);
+  res.json(await operatorLogin(email.trim().toLowerCase(), password));
+}));
 
 // ---- Me (authenticated farmer) ----
 router.get("/me", requireFarmer, wrap(async (req: any, res) => res.json(await farmerDetail(req.farmerId))));
@@ -138,7 +152,7 @@ router.post("/me/shipments", requireFarmer, wrap(async (req: any, res) => {
 }));
 
 // ---- Operator (single default operator in the demo) ----
-router.get("/operator", wrap(async (_req, res) => {
+router.get("/operator", requireOperator, wrap(async (_req, res) => {
   const op = await prisma.operator.findFirst();
   if (!op) return res.status(404).json({ error: "no operator — run `npm run seed`" });
   const [poolUsdc, farmers, lots, disbursements] = await Promise.all([
@@ -160,7 +174,7 @@ router.get("/operator", wrap(async (_req, res) => {
 }));
 
 // Mint more USDC into the pool (issuer). Simulates the operator on-ramping fiat.
-router.post("/pool/fund", wrap(async (req, res) => {
+router.post("/pool/fund", requireOperator, wrap(async (req, res) => {
   const { amount } = z.object({ amount: z.number().positive() }).parse(req.body);
   if (!config.issuerSecret) throw new Error("ISSUER_SECRET not set — run seed");
   const op = await prisma.operator.findFirst();
@@ -170,7 +184,7 @@ router.post("/pool/fund", wrap(async (req, res) => {
 }));
 
 // ---- Farmers ----
-router.get("/farmers", wrap(async (_req, res) => {
+router.get("/farmers", requireOperator, wrap(async (_req, res) => {
   const farmers = await prisma.farmer.findMany({
     include: { wallet: true, payments: true },
     orderBy: { createdAt: "asc" },
@@ -181,12 +195,19 @@ router.get("/farmers", wrap(async (_req, res) => {
       name: f.name,
       phone: f.phone,
       village: f.village,
+      status: f.status,
       publicKey: f.wallet?.publicKey,
       balance: f.wallet ? await getAssetBalance(f.wallet.publicKey, config.assetCode) : 0,
       totalReceived: f.payments.reduce((s, p) => s + p.amount, 0),
     }))
   );
   res.json(withBalance);
+}));
+
+// Cooperative approves a self-registered (pending) farmer.
+router.post("/farmers/:id/approve", requireOperator, wrap(async (req, res) => {
+  const f = await prisma.farmer.update({ where: { id: req.params.id }, data: { status: "active" } });
+  res.json({ id: f.id, status: f.status });
 }));
 
 router.get("/farmers/by-phone/:phone", wrap(async (req, res) => {
@@ -202,7 +223,7 @@ router.get("/farmers/:id", wrap(async (req, res) => {
   res.json(await farmerDetail(req.params.id));
 }));
 
-router.post("/farmers", wrap(async (req, res) => {
+router.post("/farmers", requireOperator, wrap(async (req, res) => {
   const body = z
     .object({ name: z.string().min(1), phone: z.string().min(3), village: z.string().optional() })
     .parse(req.body);
@@ -257,7 +278,7 @@ const shipmentView = (s: any) => ({
 });
 
 // Farmer declares a shipment -> gets a QR token.
-router.post("/shipments", wrap(async (req, res) => {
+router.post("/shipments", requireOperator, wrap(async (req, res) => {
   const body = z
     .object({
       farmerId: z.string(),
@@ -280,7 +301,7 @@ router.post("/shipments", wrap(async (req, res) => {
   res.json(shipmentView(s));
 }));
 
-router.get("/shipments", wrap(async (req, res) => {
+router.get("/shipments", requireOperator, wrap(async (req, res) => {
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
   const list = await prisma.shipment.findMany({
     where: status ? { status } : undefined,
@@ -290,7 +311,7 @@ router.get("/shipments", wrap(async (req, res) => {
   res.json(list.map(shipmentView));
 }));
 
-router.get("/shipments/by-token/:token", wrap(async (req, res) => {
+router.get("/shipments/by-token/:token", requireOperator, wrap(async (req, res) => {
   const s = await prisma.shipment.findUnique({
     where: { qrToken: req.params.token },
     include: { farmer: true },
@@ -300,7 +321,7 @@ router.get("/shipments/by-token/:token", wrap(async (req, res) => {
 }));
 
 // Operator verifies a scanned shipment and pays (adjust-and-pay) or rejects.
-router.post("/shipments/:id/verify", wrap(async (req, res) => {
+router.post("/shipments/:id/verify", requireOperator, wrap(async (req, res) => {
   const body = z
     .object({
       verifiedKg: z.number().positive().optional(),
@@ -314,7 +335,7 @@ router.post("/shipments/:id/verify", wrap(async (req, res) => {
 }));
 
 // ---- Lots ----
-router.get("/lots", wrap(async (_req, res) => {
+router.get("/lots", requireOperator, wrap(async (_req, res) => {
   const lots = await prisma.lot.findMany({
     include: { contributions: { include: { farmer: true } }, events: true },
     orderBy: { createdAt: "desc" },
@@ -335,7 +356,7 @@ router.get("/lots", wrap(async (_req, res) => {
   );
 }));
 
-router.post("/lots", wrap(async (req, res) => {
+router.post("/lots", requireOperator, wrap(async (req, res) => {
   const body = z
     .object({
       code: z.string().min(1),
@@ -358,7 +379,7 @@ router.post("/lots", wrap(async (req, res) => {
 }));
 
 // The simulate-trigger: verify a lot -> emit lot.verified event -> auto-disburse.
-router.post("/lots/:id/verify", wrap(async (req, res) => {
+router.post("/lots/:id/verify", requireOperator, wrap(async (req, res) => {
   const lot = await prisma.lot.findUnique({ where: { id: req.params.id } });
   if (!lot) throw new Error("lot not found");
   const disb = await ingestEvent(lot.operatorId, "lot.verified", lot.id, `lot.verified:${lot.id}`);
@@ -366,11 +387,11 @@ router.post("/lots/:id/verify", wrap(async (req, res) => {
 }));
 
 // ---- Rules ----
-router.get("/rules", wrap(async (_req, res) => {
+router.get("/rules", requireOperator, wrap(async (_req, res) => {
   res.json(await prisma.rule.findMany({ orderBy: { createdAt: "asc" } }));
 }));
 
-router.post("/rules", wrap(async (req, res) => {
+router.post("/rules", requireOperator, wrap(async (req, res) => {
   const body = z
     .object({
       name: z.string().min(1),
@@ -385,7 +406,7 @@ router.post("/rules", wrap(async (req, res) => {
 }));
 
 // ---- Events (generic ingest, for real traceability sources) ----
-router.post("/events", wrap(async (req, res) => {
+router.post("/events", requireOperator, wrap(async (req, res) => {
   const body = z
     .object({
       type: z.string().default("lot.verified"),
@@ -403,7 +424,7 @@ router.post("/events", wrap(async (req, res) => {
 }));
 
 // ---- Disbursements ----
-router.get("/disbursements", wrap(async (_req, res) => {
+router.get("/disbursements", requireOperator, wrap(async (_req, res) => {
   const ds = await prisma.disbursement.findMany({
     include: { payments: { include: { farmer: true } }, event: { include: { lot: true } } },
     orderBy: { createdAt: "desc" },
