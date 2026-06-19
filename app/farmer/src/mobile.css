@@ -46,15 +46,38 @@ body { background: #e8e3d7; }
 .tabbar button.on { color: var(--green); }
 .tabbar .ic { display: flex; }
 
-/* sign in */
+/* sign in — top-anchored so a message appearing below never shifts the form */
 .signin {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; padding: 32px 28px;
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  text-align: center; padding: 13vh 28px 28px;
 }
-.signin h1 { font-size: 30px; margin: 16px 0 4px; }
-.signin p { margin: 0; font-size: 14px; }
-.demo-links { font-size: 12.5px; margin-top: 18px; }
+.signin h1 { font-size: 28px; margin: 14px 0 2px; }
+.signin-sub { color: var(--muted); font-size: 14px; margin: 4px 0 20px; }
+.signin-sub b { color: var(--ink); font-weight: 600; }
 .block { width: 100%; }
+
+.phone-field {
+  display: flex; align-items: center; width: 100%; background: #fff;
+  border: 1px solid var(--line); border-radius: 11px; overflow: hidden; margin-bottom: 14px;
+}
+.phone-field:focus-within { border-color: var(--green-2); }
+.phone-prefix {
+  padding: 13px 14px; font-size: 15px; font-weight: 600; color: var(--ink);
+  background: var(--green-tint); border-right: 1px solid var(--line);
+}
+.phone-input { flex: 1; border: none; padding: 13px 12px; font-size: 16px; letter-spacing: 0.5px; }
+.phone-input:focus { outline: none; }
+
+.otp-input {
+  width: 100%; border: 1px solid var(--line); border-radius: 11px; padding: 13px;
+  font-size: 26px; text-align: center; letter-spacing: 10px; margin-bottom: 14px;
+}
+.otp-input:focus { outline: none; border-color: var(--green-2); }
+
+.signin-link { margin-top: 14px; background: none; border: none; }
+.signin-msg { width: 100%; margin-top: 16px; padding: 10px 12px; border-radius: 9px; font-size: 13px; }
+.signin-msg.err { background: #f7e3e1; color: var(--red); }
+.signin-msg.ok { background: #e2efe7; color: var(--green-2); }
 
 /* balance hero */
 .balance-hero {

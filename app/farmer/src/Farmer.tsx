@@ -12,6 +12,14 @@ function totalReceived(f: any): number {
   return (f?.payments ?? []).reduce((s: number, p: any) => s + p.amount, 0);
 }
 
+// User types just their local number; we normalize to +84 E.164 (drop leading 0).
+function toE164(local: string): string {
+  return "+84" + local.replace(/\D/g, "").replace(/^0+/, "");
+}
+function fmtPhone(e164: string): string {
+  return e164.replace(/^\+84(\d{3})(\d{3})(\d+)$/, "+84 $1 $2 $3");
+}
+
 export default function Farmer() {
   const [booting, setBooting] = useState(true);
   const [farmer, setFarmer] = useState<any>(null);
@@ -42,7 +50,8 @@ export default function Farmer() {
   }, []);
 
   async function sendCode() {
-    if (!phone.trim()) return;
+    const e164 = toE164(phone);
+    if (e164.length < 11) { setErr("Enter a valid phone number."); return; }
     setBusy(true); setErr("");
     try {
       if (firebaseEnabled && auth) {
@@ -52,9 +61,9 @@ export default function Farmer() {
           recaptchaRef.current = null;
         }
         recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
-        confirmationRef.current = await signInWithPhoneNumber(auth, phone.trim(), recaptchaRef.current);
+        confirmationRef.current = await signInWithPhoneNumber(auth, e164, recaptchaRef.current);
       } else {
-        const r = await api.requestOtp(phone.trim());
+        const r = await api.requestOtp(e164);
         setDevCode(r.devCode ?? null);
       }
       setStep("otp");
@@ -72,7 +81,7 @@ export default function Farmer() {
         const idToken = await cred.user.getIdToken();
         token = (await api.firebaseLogin(idToken)).token;
       } else {
-        token = (await api.verifyOtp(phone.trim(), code.trim())).token;
+        token = (await api.verifyOtp(toE164(phone), code.trim())).token;
       }
       api.setToken(token);
       applyFarmer(await api.me());
@@ -112,46 +121,43 @@ export default function Farmer() {
 
   // ---- sign in (phone OTP) ----
   if (!farmer) {
+    const e164 = toE164(phone);
     return (
       <div className="mobile">
         <div className="signin">
-          <img src="/icon-192.png" width={72} height={72} style={{ borderRadius: 18 }} alt="Tani" />
+          <img src="/icon-192.png" width={68} height={68} style={{ borderRadius: 18 }} alt="Tani" />
           <h1>Tani</h1>
           {step === "phone" ? (
             <>
-              <p className="muted">Sign in with your phone. We'll text you a code.</p>
-              <div className="field" style={{ width: "100%", marginTop: 18 }}>
-                <input type="tel" placeholder="Phone number (e.g. +84901000001)" value={phone}
-                  onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendCode()} />
+              <p className="signin-sub">Sign in with your phone number</p>
+              <div className="phone-field">
+                <span className="phone-prefix">+84</span>
+                <input className="phone-input" type="tel" inputMode="numeric" autoFocus
+                  placeholder="912 345 678" value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendCode()} />
               </div>
-              <button className="btn-green block" onClick={sendCode} disabled={busy || !phone.trim()}>
+              <button className="btn-green block" onClick={sendCode} disabled={busy || e164.length < 11}>
                 {busy ? "Sending…" : "Send code"}
               </button>
             </>
           ) : (
             <>
-              <p className="muted">Enter the 6-digit code sent to<br /><b>{phone}</b></p>
-              <div className="field" style={{ width: "100%", marginTop: 18 }}>
-                <input type="tel" inputMode="numeric" maxLength={6} placeholder="••••••" value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                  onKeyDown={(e) => e.key === "Enter" && verify()}
-                  style={{ textAlign: "center", letterSpacing: 8, fontSize: 22 }} />
-              </div>
-              <button className="btn-green block" onClick={verify} disabled={busy || code.length < 4}>
+              <p className="signin-sub">Code sent to <b>{fmtPhone(e164)}</b></p>
+              <input className="otp-input" type="tel" inputMode="numeric" maxLength={6} autoFocus
+                placeholder="······" value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                onKeyDown={(e) => e.key === "Enter" && verify()} />
+              <button className="btn-green block" onClick={verify} disabled={busy || code.length < 6}>
                 {busy ? "Verifying…" : "Verify"}
               </button>
-              <button className="link" style={{ marginTop: 12, background: "none", border: "none" }}
-                onClick={() => { setStep("phone"); setCode(""); setErr(""); }}>
+              <button className="link signin-link" onClick={() => { setStep("phone"); setCode(""); setErr(""); }}>
                 Change number
               </button>
-              {devCode && (
-                <div className="notice notice-ok" style={{ width: "100%", marginTop: 14 }}>
-                  Dev mode (no SMS provider): your code is <b>{devCode}</b>
-                </div>
-              )}
+              {devCode && <div className="signin-msg ok">Test code: <b>{devCode}</b></div>}
             </>
           )}
-          {err && <div className="notice notice-err" style={{ width: "100%" }}>{err}</div>}
+          {err && <div className="signin-msg err">{err}</div>}
           <div id="recaptcha-container" />
         </div>
       </div>
