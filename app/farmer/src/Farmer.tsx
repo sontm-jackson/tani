@@ -46,9 +46,12 @@ export default function Farmer() {
     setBusy(true); setErr("");
     try {
       if (firebaseEnabled && auth) {
-        if (!recaptchaRef.current) {
-          recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+        // Use a fresh invisible reCAPTCHA each attempt (reusing a consumed one hangs / errors).
+        if (recaptchaRef.current) {
+          try { recaptchaRef.current.clear(); } catch {}
+          recaptchaRef.current = null;
         }
+        recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
         confirmationRef.current = await signInWithPhoneNumber(auth, phone.trim(), recaptchaRef.current);
       } else {
         const r = await api.requestOtp(phone.trim());
