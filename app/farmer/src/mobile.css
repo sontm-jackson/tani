@@ -151,6 +151,25 @@ body { background: #e8e3d7; }
 .act-amt.out { color: var(--ink); }
 
 /* farm map */
+.map-search { position: relative; margin-bottom: 10px; }
+.map-search input {
+  width: 100%; height: 46px; border: 1px solid var(--line); border-radius: 11px;
+  padding: 0 38px 0 14px; font-size: 14.5px; background: #fff;
+}
+.map-search input:focus { outline: none; border-color: var(--green-2); }
+.map-search-spin { position: absolute; right: 14px; top: 13px; color: var(--muted); font-size: 18px; }
+.map-search-results {
+  position: absolute; top: 50px; left: 0; right: 0; z-index: 5;
+  background: #fff; border: 1px solid var(--line); border-radius: 11px; overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.map-search-results button {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  padding: 11px 14px; font-size: 13px; color: var(--ink); cursor: pointer;
+  border-bottom: 1px solid var(--green-tint); line-height: 1.35;
+}
+.map-search-results button:last-child { border-bottom: none; }
+.map-search-results button:hover { background: var(--green-tint); }
 .farm-map-wrap { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
 .farm-pin { width: 18px; height: 18px; border-radius: 50%; background: var(--amber); border: 3px solid #fff; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4); }
 .leaflet-container { font-family: "Segoe UI", system-ui, sans-serif; z-index: 0; }
