@@ -9,6 +9,8 @@
 .op-brand .dot { color: var(--amber); }
 .op-co { color: #cfe0d7; font-size: 14px; }
 .op-bar .spacer { flex: 1; }
+.op-pool { color: #cfe0d7; font-size: 13px; margin-right: 4px; }
+.op-pool b { color: var(--amber); font-weight: 700; }
 .op-signout {
   background: rgba(255, 255, 255, 0.14); color: #fff; border: none;
   border-radius: 8px; padding: 8px 14px; font-size: 13.5px; font-weight: 600; cursor: pointer;

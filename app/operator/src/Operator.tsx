@@ -3,12 +3,14 @@ import { api, fmtUsdc } from "@shared/api";
 import { Arrivals } from "./Arrivals";
 import { FarmMap } from "./FarmMap";
 
-const TABS = ["Dashboard", "Arrivals", "Lots", "Farmers", "Map", "Rules"] as const;
+// Arrivals is the daily workspace (scan -> verify -> pay), so it leads and is the
+// default. The batch "Lots" path is hidden from the UI to keep one clear payment
+// spine; the lot engine still exists in the API.
+const TABS = ["Arrivals", "Approvals", "Dashboard", "Farmers", "Map", "Rules"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function Operator({ onLogout }: { onLogout: () => void }) {
   const [op, setOp] = useState<any>(null);
-  const [lots, setLots] = useState<any[]>([]);
   const [disbs, setDisbs] = useState<any[]>([]);
   const [farmers, setFarmers] = useState<any[]>([]);
   const [rules, setRules] = useState<any[]>([]);
@@ -17,13 +19,13 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
   const [notice, setNotice] = useState<{ ok: boolean; msg: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [panel, setPanel] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("Dashboard");
+  const [tab, setTab] = useState<Tab>("Arrivals");
 
   async function load() {
-    const [o, l, d, f, r] = await Promise.all([
-      api.operator(), api.lots(), api.disbursements(), api.farmers(), api.rules(),
+    const [o, d, f, r] = await Promise.all([
+      api.operator(), api.disbursements(), api.farmers(), api.rules(),
     ]);
-    setOp(o); setLots(l); setDisbs(d); setFarmers(f); setRules(r);
+    setOp(o); setDisbs(d); setFarmers(f); setRules(r);
   }
   useEffect(() => {
     load()
@@ -52,6 +54,7 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
   const pending = farmers.filter((f) => f.status === "pending");
   const active = farmers.filter((f) => f.status !== "pending");
   const locReqs = farmers.filter((f) => f.pendingLat != null && f.pendingLng != null);
+  const todo = pending.length + locReqs.length;
 
   return (
     <div className="op-shell">
@@ -60,6 +63,7 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
           <span className="op-brand">Tani<span className="dot">.</span></span>
           <span className="op-co">{op.name}</span>
           <span className="spacer" />
+          <span className="op-pool">Pool <b>{fmtUsdc(op.poolBalance)}</b> USDC</span>
           <span className="badge">testnet</span>
           <button className="op-signout" onClick={onLogout}>Sign out</button>
         </div>
@@ -68,8 +72,7 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
         {TABS.map((t) => (
           <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
             {t}
-            {t === "Farmers" && pending.length > 0 ? <span className="tab-badge">{pending.length}</span> : null}
-            {t === "Map" && locReqs.length > 0 ? <span className="tab-badge">{locReqs.length}</span> : null}
+            {t === "Approvals" && todo > 0 ? <span className="tab-badge">{todo}</span> : null}
           </button>
         ))}
       </div>
@@ -115,11 +118,39 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
 
         {tab === "Arrivals" && <Arrivals onChanged={load} onNotice={(m) => setNotice({ ok: true, msg: m })} />}
 
-        {tab === "Map" && (
+        {tab === "Approvals" && (
           <>
+            {todo === 0 && (
+              <div className="section">
+                <h2>Approvals</h2>
+                <div className="card pad muted">All caught up. No farmer accounts or location changes are waiting.</div>
+              </div>
+            )}
+            {pending.length > 0 && (
+              <div className="section">
+                <h2>New farmer accounts ({pending.length})</h2>
+                <p className="sub" style={{ marginTop: -4 }}>Self-registered farmers waiting to be activated before they can be paid.</p>
+                <div className="card">
+                  {pending.map((f) => (
+                    <div className="lot" key={f.id} style={{ borderBottom: "1px solid var(--green-tint)" }}>
+                      <div>
+                        <div className="code">{f.name}</div>
+                        <div className="detail">{f.phone} · {f.village || "—"} · self-registered</div>
+                      </div>
+                      <div className="spacer" />
+                      <span className="pill pill-pending">pending</span>
+                      <button className="btn-primary" disabled={busy === f.id}
+                        onClick={() => run(f.id, () => api.approveFarmer(f.id), () => `${f.name} approved.`)}>
+                        {busy === f.id ? "…" : "Approve"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {locReqs.length > 0 && (
               <div className="section">
-                <h2>Location approval requests ({locReqs.length})</h2>
+                <h2>Location changes ({locReqs.length})</h2>
                 <p className="sub" style={{ marginTop: -4 }}>
                   A farmer proposed a farm pin. Approve to make it the trace-grade origin used in EUDR exports.
                 </p>
@@ -151,86 +182,27 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
                 </div>
               </div>
             )}
-            <FarmMap farmers={farmers} />
           </>
         )}
 
-        {tab === "Lots" && (
+        {tab === "Map" && (
           <>
-            <div className="section">
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <h2 style={{ flex: 1 }}>Lots (batch verification)</h2>
-                <button className="btn-ghost" onClick={() => setPanel(panel === "lot" ? null : "lot")}>+ New lot</button>
+            {locReqs.length > 0 && (
+              <div className="notice notice-ok" style={{ marginBottom: 14 }}>
+                {locReqs.length} proposed {locReqs.length === 1 ? "pin is" : "pins are"} shown as hollow rings below.
+                Approve {locReqs.length === 1 ? "it" : "them"} in the <button className="link" onClick={() => setTab("Approvals")}>Approvals</button> tab.
               </div>
-              {panel === "lot" && (
-                <NewLotForm farmers={active} busy={busy === "lot"}
-                  onSubmit={(body: any) => run("lot", () => api.createLot(body), () => "Lot created.").then(() => setPanel(null))} />
-              )}
-              <div className="card">
-                {lots.length === 0 && <div className="pad muted">No lots.</div>}
-                {lots.map((l) => (
-                  <div className="lot" key={l.id} style={{ borderBottom: "1px solid var(--green-tint)" }}>
-                    <div>
-                      <div className="code">{l.code} <span className={`pill commodity-${l.commodity}`} style={{ marginLeft: 6 }}>{l.commodity}</span></div>
-                      <div className="detail">{l.totalKg}kg · {l.contributions.length} farmers</div>
-                    </div>
-                    <div className="spacer" />
-                    <span className={`pill pill-${l.status}`}>{l.status}</span>
-                    {l.status !== "paid" ? (
-                      <button className="btn-primary" onClick={() => run(l.id, () => api.verifyLot(l.id),
-                        (r) => r.status === "success" ? `Disbursed ${fmtUsdc(r.totalAmount)} USDC to ${r.payments.length} farmers — on-chain.` : `Disbursement ${r.status}`)}
-                        disabled={busy === l.id}>
-                        {busy === l.id ? "Disbursing…" : "Verify & pay"}
-                      </button>
-                    ) : <button className="btn-ghost" disabled>Paid</button>}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="section">
-              <h2>Disbursement history</h2>
-              <div className="card">
-                {disbs.length === 0 && <div className="pad muted">Nothing disbursed yet. Verify a lot above.</div>}
-                {disbs.map((d) => (
-                  <div className="disb" key={d.id}>
-                    <div className="head">
-                      <span className={`pill pill-${d.status}`}>{d.status}</span>
-                      <b>{d.lot}</b>
-                      <span className="muted" style={{ fontSize: 13 }}>{d.payments.length} farmers</span>
-                      <span className="amount">{fmtUsdc(d.totalAmount)} USDC</span>
-                    </div>
-                    {d.explorer && <a className="link" href={d.explorer} target="_blank" rel="noreferrer">transaction on-chain ↗</a>}
-                    <div className="payments">
-                      {d.payments.map((p: any, i: number) => (<div className="pay" key={i}><span>{p.farmerName}</span><b>{fmtUsdc(p.amount)}</b></div>))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
+            <FarmMap farmers={farmers} />
           </>
         )}
 
         {tab === "Farmers" && (
           <>
             {pending.length > 0 && (
-              <div className="section">
-                <h2>Pending approval ({pending.length})</h2>
-                <div className="card">
-                  {pending.map((f) => (
-                    <div className="lot" key={f.id} style={{ borderBottom: "1px solid var(--green-tint)" }}>
-                      <div>
-                        <div className="code">{f.name}</div>
-                        <div className="detail">{f.phone} · {f.village || "—"} · self-registered</div>
-                      </div>
-                      <div className="spacer" />
-                      <span className="pill pill-pending">pending</span>
-                      <button className="btn-primary" disabled={busy === f.id}
-                        onClick={() => run(f.id, () => api.approveFarmer(f.id), () => `${f.name} approved.`)}>
-                        {busy === f.id ? "…" : "Approve"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
+              <div className="notice notice-ok" style={{ marginBottom: 14 }}>
+                {pending.length} farmer {pending.length === 1 ? "account is" : "accounts are"} waiting to be approved in the{" "}
+                <button className="link" onClick={() => setTab("Approvals")}>Approvals</button> tab.
               </div>
             )}
             <div className="section">
@@ -316,34 +288,6 @@ function AnchorCard({ anchor }: { anchor: any }) {
           <div className="muted" style={{ fontSize: 11.5, marginTop: 8, lineHeight: 1.5 }}>{(anchor.seps || []).join(" · ")}</div>
         </>
       )}
-    </div>
-  );
-}
-
-function NewLotForm({ farmers, busy, onSubmit }: any) {
-  const [code, setCode] = useState("");
-  const [commodity, setCommodity] = useState("coffee");
-  const [rows, setRows] = useState<Record<string, string>>({});
-  const contributions = Object.entries(rows).filter(([, v]) => Number(v) > 0).map(([farmerId, v]) => ({ farmerId, quantityKg: Number(v) }));
-  return (
-    <div className="card pad form-panel">
-      <div className="row">
-        <div className="field" style={{ flex: 2 }}><label>Lot code</label><input value={code} onChange={(e) => setCode(e.target.value)} placeholder="LOT-2026-002" /></div>
-        <div className="field"><label>Commodity</label><input value={commodity} onChange={(e) => setCommodity(e.target.value)} placeholder="coffee" /></div>
-      </div>
-      <label className="muted" style={{ fontSize: 12.5, fontWeight: 600 }}>Contributions (kg)</label>
-      <div className="contrib-grid">
-        {farmers.map((f: any) => (
-          <div key={f.id} className="contrib-row">
-            <span>{f.name}</span>
-            <input type="number" placeholder="0" value={rows[f.id] ?? ""} onChange={(e) => setRows({ ...rows, [f.id]: e.target.value })} style={{ width: 80 }} />
-          </div>
-        ))}
-      </div>
-      <button className="btn-green" style={{ marginTop: 12 }} disabled={busy || !code || contributions.length === 0}
-        onClick={() => onSubmit({ code, commodity, contributions })}>
-        {busy ? "Creating…" : `Create lot (${contributions.length} farmers)`}
-      </button>
     </div>
   );
 }
