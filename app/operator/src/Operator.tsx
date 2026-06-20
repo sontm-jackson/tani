@@ -51,6 +51,7 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
 
   const pending = farmers.filter((f) => f.status === "pending");
   const active = farmers.filter((f) => f.status !== "pending");
+  const locReqs = farmers.filter((f) => f.pendingLat != null && f.pendingLng != null);
 
   return (
     <div className="op-shell">
@@ -66,7 +67,9 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
       <div className="op-tabs wrap">
         {TABS.map((t) => (
           <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
-            {t}{t === "Farmers" && pending.length > 0 ? <span className="tab-badge">{pending.length}</span> : null}
+            {t}
+            {t === "Farmers" && pending.length > 0 ? <span className="tab-badge">{pending.length}</span> : null}
+            {t === "Map" && locReqs.length > 0 ? <span className="tab-badge">{locReqs.length}</span> : null}
           </button>
         ))}
       </div>
@@ -112,7 +115,45 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
 
         {tab === "Arrivals" && <Arrivals onChanged={load} onNotice={(m) => setNotice({ ok: true, msg: m })} />}
 
-        {tab === "Map" && <FarmMap farmers={farmers} />}
+        {tab === "Map" && (
+          <>
+            {locReqs.length > 0 && (
+              <div className="section">
+                <h2>Location approval requests ({locReqs.length})</h2>
+                <p className="sub" style={{ marginTop: -4 }}>
+                  A farmer proposed a farm pin. Approve to make it the trace-grade origin used in EUDR exports.
+                </p>
+                <div className="card">
+                  {locReqs.map((f) => (
+                    <div className="lot" key={f.id} style={{ borderBottom: "1px solid var(--green-tint)" }}>
+                      <div>
+                        <div className="code">{f.name}</div>
+                        <div className="detail">
+                          {f.village || "—"} · proposed 📍 {f.pendingLat.toFixed(4)}, {f.pendingLng.toFixed(4)}
+                          {f.lat != null ? " · updates current pin" : " · first location"}
+                        </div>
+                      </div>
+                      <div className="spacer" />
+                      <a className="link" target="_blank" rel="noreferrer"
+                        href={`https://www.openstreetmap.org/?mlat=${f.pendingLat}&mlon=${f.pendingLng}#map=15/${f.pendingLat}/${f.pendingLng}`}>
+                        preview ↗
+                      </a>
+                      <button className="btn-ghost" disabled={busy === f.id}
+                        onClick={() => run(f.id, () => api.rejectLocation(f.id), () => `${f.name}'s location change rejected.`)}>
+                        Reject
+                      </button>
+                      <button className="btn-primary" disabled={busy === f.id}
+                        onClick={() => run(f.id, () => api.approveLocation(f.id), () => `${f.name}'s location approved.`)}>
+                        {busy === f.id ? "…" : "Approve"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <FarmMap farmers={farmers} />
+          </>
+        )}
 
         {tab === "Lots" && (
           <>

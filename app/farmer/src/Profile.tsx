@@ -8,10 +8,13 @@ export function Profile({ farmer, onChange, onSignOut }: { farmer: any; onChange
   const initials = farmer.name.split(" ").filter(Boolean).slice(-2).map((w: string) => w[0]).join("").toUpperCase();
   const active = farmer.status !== "pending";
 
-  const hasLoc = farmer.lat != null && farmer.lng != null;
-  const farmSummary = hasLoc
-    ? `📍 ${farmer.village || `${farmer.lat.toFixed(3)}, ${farmer.lng.toFixed(3)}`}${farmer.bio ? ` · ${farmer.bio}` : ""}`
-    : "Set your farm location and story";
+  const hasApproved = farmer.lat != null && farmer.lng != null;
+  const hasPending = farmer.pendingLat != null && farmer.pendingLng != null;
+  const farmSummary = hasApproved
+    ? `📍 ${farmer.village || `${farmer.lat.toFixed(3)}, ${farmer.lng.toFixed(3)}`}${hasPending ? " · update pending" : ""}${farmer.bio ? ` · ${farmer.bio}` : ""}`
+    : hasPending
+      ? "📍 Location pending co-op approval"
+      : "Set your farm location and story";
 
   const paySummary = farmer.payout
     ? `${farmer.payout.provider} ••••${(farmer.payout.account || "").slice(-4)}`
@@ -32,7 +35,7 @@ export function Profile({ farmer, onChange, onSignOut }: { farmer: any; onChange
         </div>
       </div>
 
-      <Collapsible title="Your farm" summary={farmSummary} defaultOpen={!hasLoc}>
+      <Collapsible title="Your farm" summary={farmSummary} defaultOpen={!hasApproved && !hasPending}>
         <FarmProfile farmer={farmer} onSaved={onChange} />
       </Collapsible>
 

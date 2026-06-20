@@ -132,8 +132,13 @@ router.post("/me/payout-method", requireFarmer, wrap(async (req: any, res) => {
 }));
 
 // Farmer sets their own farm location + story.
+// A farmer's story updates directly, but a location change is only *proposed*:
+// it lands in pendingLat/Lng and isn't trace-grade until the co-op approves it.
 router.post("/me/profile", requireFarmer, wrap(async (req: any, res) => {
-  await prisma.farmer.update({ where: { id: req.farmerId }, data: profileSchema.parse(req.body) });
+  const { lat, lng, ...story } = profileSchema.parse(req.body);
+  const data: any = { ...story };
+  if (lat != null && lng != null) { data.pendingLat = lat; data.pendingLng = lng; }
+  await prisma.farmer.update({ where: { id: req.farmerId }, data });
   res.json(await farmerDetail(req.farmerId));
 }));
 
@@ -215,6 +220,9 @@ router.get("/farmers", requireOperator, wrap(async (_req, res) => {
       status: f.status,
       lat: f.lat,
       lng: f.lng,
+      pendingLat: f.pendingLat,
+      pendingLng: f.pendingLng,
+      locationApprovedAt: f.locationApprovedAt,
       bio: f.bio,
       household: f.household,
       yearsFarming: f.yearsFarming,
@@ -234,9 +242,33 @@ router.post("/farmers/:id/approve", requireOperator, wrap(async (req, res) => {
 }));
 
 // Cooperative sets/edits a farmer's farm location + profile (helping them set it up).
+// The co-op is the authority, so a location it sets is approved immediately.
 router.post("/farmers/:id/profile", requireOperator, wrap(async (req, res) => {
-  const f = await prisma.farmer.update({ where: { id: req.params.id }, data: profileSchema.parse(req.body) });
+  const { lat, lng, ...story } = profileSchema.parse(req.body);
+  const data: any = { ...story };
+  if (lat != null && lng != null) {
+    data.lat = lat; data.lng = lng; data.pendingLat = null; data.pendingLng = null; data.locationApprovedAt = new Date();
+  }
+  const f = await prisma.farmer.update({ where: { id: req.params.id }, data });
   res.json({ id: f.id });
+}));
+
+// Cooperative approves a farmer's proposed location -> it becomes the trace-grade pin.
+router.post("/farmers/:id/location/approve", requireOperator, wrap(async (req, res) => {
+  const f = await prisma.farmer.findUnique({ where: { id: req.params.id } });
+  if (!f) throw new Error("farmer not found");
+  if (f.pendingLat == null || f.pendingLng == null) throw new Error("no pending location to approve");
+  await prisma.farmer.update({
+    where: { id: f.id },
+    data: { lat: f.pendingLat, lng: f.pendingLng, pendingLat: null, pendingLng: null, locationApprovedAt: new Date() },
+  });
+  res.json({ id: f.id, ok: true });
+}));
+
+// Cooperative rejects a proposed location -> discard it, keep the existing approved pin (if any).
+router.post("/farmers/:id/location/reject", requireOperator, wrap(async (req, res) => {
+  await prisma.farmer.update({ where: { id: req.params.id }, data: { pendingLat: null, pendingLng: null } });
+  res.json({ ok: true });
 }));
 
 router.get("/farmers/by-phone/:phone", wrap(async (req, res) => {
@@ -533,6 +565,9 @@ async function farmerDetail(id: string) {
     village: f.village,
     lat: f.lat,
     lng: f.lng,
+    pendingLat: f.pendingLat,
+    pendingLng: f.pendingLng,
+    locationApprovedAt: f.locationApprovedAt,
     bio: f.bio,
     household: f.household,
     yearsFarming: f.yearsFarming,

@@ -199,6 +199,9 @@ body { background: #e8e3d7; }
 .map-search-results button:hover { background: var(--green-tint); }
 .farm-map-wrap { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
 .farm-pin { width: 18px; height: 18px; border-radius: 50%; background: var(--amber); border: 3px solid #fff; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4); }
+.loc-status { font-size: 12px; margin-top: 7px; font-weight: 600; }
+.loc-status.pending { color: var(--amber-deep); }
+.loc-status.ok { color: var(--green-2); }
 .leaflet-container { font-family: "Segoe UI", system-ui, sans-serif; z-index: 0; }
 
 /* ship tab */

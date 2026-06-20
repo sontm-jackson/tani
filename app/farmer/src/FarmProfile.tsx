@@ -63,8 +63,9 @@ function PlaceSearch({ onPick }: { onPick: (la: number, ln: number, label: strin
 }
 
 export function FarmProfile({ farmer, onSaved }: { farmer: any; onSaved: (f: any) => void }) {
-  const [lat, setLat] = useState<number | null>(farmer.lat ?? null);
-  const [lng, setLng] = useState<number | null>(farmer.lng ?? null);
+  // Show the proposed pin if there's one awaiting approval, else the approved pin.
+  const [lat, setLat] = useState<number | null>(farmer.pendingLat ?? farmer.lat ?? null);
+  const [lng, setLng] = useState<number | null>(farmer.pendingLng ?? farmer.lng ?? null);
   const [bio, setBio] = useState(farmer.bio ?? "");
   const [household, setHousehold] = useState(farmer.household ?? "");
   const [years, setYears] = useState(farmer.yearsFarming != null ? String(farmer.yearsFarming) : "");
@@ -83,7 +84,7 @@ export function FarmProfile({ farmer, onSaved }: { farmer: any; onSaved: (f: any
         lat: lat ?? undefined, lng: lng ?? undefined,
       });
       onSaved(f);
-      setNotice({ ok: true, msg: "Farm profile saved." });
+      setNotice({ ok: true, msg: f.pendingLat != null ? "Saved. Your location is waiting for your co-op to approve it." : "Farm details saved." });
     } catch (e: any) {
       setNotice({ ok: false, msg: e.message });
     } finally {
@@ -106,6 +107,11 @@ export function FarmProfile({ farmer, onSaved }: { farmer: any; onSaved: (f: any
       {lat != null && lng != null
         ? <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>📍 {lat.toFixed(5)}, {lng.toFixed(5)}</div>
         : <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>No location set yet.</div>}
+      {farmer.pendingLat != null
+        ? <div className="loc-status pending">⏳ Waiting for your co-op to approve this location</div>
+        : farmer.lat != null
+          ? <div className="loc-status ok">✓ Approved by your co-op</div>
+          : null}
 
       <div className="form-group-label" style={{ marginTop: 20 }}>Farm story</div>
       <div className="field"><label>Your story</label>

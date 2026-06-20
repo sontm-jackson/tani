@@ -30,6 +30,8 @@ export const api = {
   operatorLogin: (email: string, password: string) =>
     req("/operator/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   approveFarmer: (id: string) => req(`/farmers/${id}/approve`, { method: "POST" }),
+  approveLocation: (id: string) => req(`/farmers/${id}/location/approve`, { method: "POST" }),
+  rejectLocation: (id: string) => req(`/farmers/${id}/location/reject`, { method: "POST" }),
 
   // ---- farmer auth (phone OTP) ----
   hasToken: () => !!token(),

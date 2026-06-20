@@ -38,8 +38,11 @@ model Farmer {
   village       String?
   status        String         @default("active") // active | pending (self-registered, awaiting co-op approval)
   // farm location (the traceability origin node) + farmer story
-  lat           Float?
+  lat           Float? // co-op-approved (trace-grade) location
   lng           Float?
+  pendingLat    Float? // farmer-proposed location awaiting co-op approval
+  pendingLng    Float?
+  locationApprovedAt DateTime? // when the co-op last approved the location
   bio           String? // short story
   household     String? // e.g. "Family of 5"
   yearsFarming  Int?
