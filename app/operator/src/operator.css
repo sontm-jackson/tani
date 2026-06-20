@@ -53,6 +53,23 @@
 .farm-pin.pending {
   background: #fff; border: 3px solid var(--amber); box-shadow: 0 0 0 2px #fff, 0 1px 4px rgba(0, 0, 0, 0.4);
 }
+/* trace: dim non-matching farms, light up the traced origin(s) */
+.farm-pin.dim { width: 12px; height: 12px; background: #b9c3bd; border-width: 2px; opacity: 0.85; }
+.farm-pin.hot {
+  width: 22px; height: 22px; background: var(--green-2); border: 3px solid #fff;
+  box-shadow: 0 0 0 4px rgba(43, 122, 87, 0.25), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+/* trace explorer layout: map + provenance panel side by side */
+.trace-grid { display: flex; gap: 14px; align-items: flex-start; }
+.trace-grid > .card:first-child { flex: 2; min-width: 320px; }
+.trace-panel { flex: 1; min-width: 280px; }
+.trace-rows { margin: 4px 0 10px; }
+.trace-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--green-tint); }
+.trace-row:last-child { border-bottom: none; }
+.trace-row span { color: var(--muted); }
+.trace-row b { color: var(--ink); font-weight: 600; text-align: right; }
+@media (max-width: 720px) { .trace-grid { flex-direction: column; } .trace-grid > .card:first-child, .trace-panel { width: 100%; } }
 .farm-pop { min-width: 180px; }
 .fp-name { font-weight: 700; font-size: 14px; color: var(--ink); }
 .fp-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }

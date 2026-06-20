@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, fmtUsdc } from "@shared/api";
 import { Arrivals } from "./Arrivals";
-import { FarmMap } from "./FarmMap";
+import { Trace } from "./Trace";
 
 // Arrivals is the daily workspace (scan -> verify -> pay), so it leads and is the
 // default. The batch "Lots" path is hidden from the UI to keep one clear payment
 // spine; the lot engine still exists in the API.
-const TABS = ["Arrivals", "Approvals", "Dashboard", "Farmers", "Map", "Rules"] as const;
+const TABS = ["Arrivals", "Approvals", "Dashboard", "Farmers", "Trace", "Rules"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function Operator({ onLogout }: { onLogout: () => void }) {
@@ -185,17 +185,7 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
           </>
         )}
 
-        {tab === "Map" && (
-          <>
-            {locReqs.length > 0 && (
-              <div className="notice notice-ok" style={{ marginBottom: 14 }}>
-                {locReqs.length} proposed {locReqs.length === 1 ? "pin is" : "pins are"} shown as hollow rings below.
-                Approve {locReqs.length === 1 ? "it" : "them"} in the <button className="link" onClick={() => setTab("Approvals")}>Approvals</button> tab.
-              </div>
-            )}
-            <FarmMap farmers={farmers} />
-          </>
-        )}
+        {tab === "Trace" && <Trace farmers={farmers} disbursements={disbs} />}
 
         {tab === "Farmers" && (
           <>

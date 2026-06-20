@@ -323,6 +323,8 @@ const shipmentView = (s: any) => ({
   farmerId: s.farmerId,
   farmerName: s.farmer?.name,
   village: s.farmer?.village,
+  farmerLat: s.farmer?.lat ?? null,
+  farmerLng: s.farmer?.lng ?? null,
   variety: s.variety,
   claimedKg: s.claimedKg,
   verifiedKg: s.verifiedKg,
@@ -411,6 +413,9 @@ router.get("/lots", requireOperator, wrap(async (_req, res) => {
       contributions: l.contributions.map((c) => ({
         farmerId: c.farmerId,
         farmerName: c.farmer.name,
+        village: c.farmer.village,
+        lat: c.farmer.lat,
+        lng: c.farmer.lng,
         quantityKg: c.quantityKg,
       })),
     }))
