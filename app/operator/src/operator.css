@@ -1,5 +1,9 @@
 /* Cooperative dashboard — app bar, tabs, login */
 
+/* Always reserve the scrollbar gutter so switching between tall tabs (Trace's
+   map) and short ones (Rules) doesn't shift the centered layout sideways. */
+html { scrollbar-gutter: stable; }
+
 .op-bar {
   position: sticky; top: 0; z-index: 20;
   background: var(--green); color: #fff;
