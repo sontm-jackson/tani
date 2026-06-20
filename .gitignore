@@ -28,3 +28,8 @@ WHY-STELLAR.md
 __pycache__/
 .DS_Store
 *.log
+
+# local screenshot / debug artifacts
+*.png
+app/operator/shot.mjs
+app/farmer/shot.cjs

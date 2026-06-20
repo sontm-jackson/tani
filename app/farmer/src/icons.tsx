@@ -22,6 +22,15 @@ export function IconShip() {
   );
 }
 
+export function IconFarm() {
+  return (
+    <svg {...base}>
+      <path d="M12 21s-7-5.5-7-11a7 7 0 0114 0c0 5.5-7 11-7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
 export function IconWallet() {
   return (
     <svg {...base}>

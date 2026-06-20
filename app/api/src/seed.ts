@@ -13,14 +13,14 @@ import { provisionWallet } from "./services/custody.js";
 import { newQrToken } from "./services/shipments.js";
 
 const FARMERS = [
-  { name: "Nguyễn Văn An", village: "Di Linh", phone: "+84901000001", coffee: 240, rice: 1200 },
-  { name: "Trần Thị Bình", village: "Bảo Lộc", phone: "+84901000002", coffee: 180, rice: 0 },
-  { name: "Lê Văn Cường", village: "Cầu Đất", phone: "+84901000003", coffee: 320, rice: 2400 },
-  { name: "Phạm Thị Dung", village: "Đức Trọng", phone: "+84901000004", coffee: 150, rice: 1800 },
-  { name: "Hoàng Văn Em", village: "Lạc Dương", phone: "+84901000005", coffee: 200, rice: 0 },
-  { name: "Vũ Thị Hoa", village: "Di Linh", phone: "+84901000006", coffee: 90, rice: 900 },
-  { name: "Đặng Văn Giang", village: "Cầu Đất", phone: "+84901000007", coffee: 275, rice: 0 },
-  { name: "Bùi Thị Hạnh", village: "Bảo Lộc", phone: "+84901000008", coffee: 130, rice: 1500 },
+  { name: "Nguyễn Văn An", village: "Di Linh", phone: "+84901000001", coffee: 240, rice: 1200, lat: 11.575, lng: 108.068, household: "Family of 5", yearsFarming: 18, bio: "Third-generation coffee grower on a 1.2 ha plot." },
+  { name: "Trần Thị Bình", village: "Bảo Lộc", phone: "+84901000002", coffee: 180, rice: 0, lat: 11.548, lng: 107.812, household: "Family of 4", yearsFarming: 12, bio: "Switched to washed Arabica for the export premium." },
+  { name: "Lê Văn Cường", village: "Cầu Đất", phone: "+84901000003", coffee: 320, rice: 2400, lat: 11.805, lng: 108.552, household: "Family of 6", yearsFarming: 22, bio: "Grows Robusta and rice; co-op member since 2015." },
+  { name: "Phạm Thị Dung", village: "Đức Trọng", phone: "+84901000004", coffee: 150, rice: 1800, lat: 11.752, lng: 108.402, household: "Family of 3", yearsFarming: 9, bio: "Young farmer focused on organic certification." },
+  { name: "Hoàng Văn Em", village: "Lạc Dương", phone: "+84901000005", coffee: 200, rice: 0, lat: 12.048, lng: 108.435, household: "Family of 5", yearsFarming: 15, bio: "High-altitude specialty coffee near Lạc Dương." },
+  { name: "Vũ Thị Hoa", village: "Di Linh", phone: "+84901000006", coffee: 90, rice: 900, lat: 11.582, lng: 108.079, household: "Family of 4", yearsFarming: 7, bio: "Small plot, sells to the co-op each harvest." },
+  { name: "Đặng Văn Giang", village: "Cầu Đất", phone: "+84901000007", coffee: 275, rice: 0, lat: 11.813, lng: 108.560, household: "Family of 7", yearsFarming: 25, bio: "Honey-processed beans, Fairtrade certified." },
+  { name: "Bùi Thị Hạnh", village: "Bảo Lộc", phone: "+84901000008", coffee: 130, rice: 1500, lat: 11.556, lng: 107.821, household: "Family of 4", yearsFarming: 11, bio: "Coffee and rice on a family plot in Bảo Lộc." },
 ];
 
 function updateEnv(updates: Record<string, string>) {
@@ -92,6 +92,11 @@ async function main() {
         name: f.name,
         phone: f.phone,
         village: f.village,
+        lat: f.lat,
+        lng: f.lng,
+        bio: f.bio,
+        household: f.household,
+        yearsFarming: f.yearsFarming,
         wallet: { create: { publicKey: kp.publicKey, secret: encrypt(kp.secret), trustline: true } },
       },
     });

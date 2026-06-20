@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { api, fmtUsdc } from "@shared/api";
 import { Arrivals } from "./Arrivals";
+import { FarmMap } from "./FarmMap";
 
-const TABS = ["Dashboard", "Arrivals", "Lots", "Farmers", "Rules"] as const;
+const TABS = ["Dashboard", "Arrivals", "Lots", "Farmers", "Map", "Rules"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function Operator({ onLogout }: { onLogout: () => void }) {
@@ -110,6 +111,8 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
         )}
 
         {tab === "Arrivals" && <Arrivals onChanged={load} onNotice={(m) => setNotice({ ok: true, msg: m })} />}
+
+        {tab === "Map" && <FarmMap farmers={farmers} />}
 
         {tab === "Lots" && (
           <>

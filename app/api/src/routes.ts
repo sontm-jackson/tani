@@ -24,6 +24,17 @@ const wrap = (fn: (req: any, res: any) => Promise<any>) => (req: any, res: any) 
     res.status(400).json({ error: e?.message ?? String(e) });
   });
 
+// Farm location (origin node) + farmer story.
+const profileSchema = z.object({
+  village: z.string().optional(),
+  bio: z.string().optional(),
+  household: z.string().optional(),
+  yearsFarming: z.number().int().nonnegative().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  photoUrl: z.string().optional(),
+});
+
 router.get("/health", (_req, res) => res.json({ ok: true, network: config.network }));
 
 // Live anchor connectivity (SEP-1) — proves real anchor integration.
@@ -120,6 +131,12 @@ router.post("/me/payout-method", requireFarmer, wrap(async (req: any, res) => {
   res.json(await farmerDetail(req.farmerId));
 }));
 
+// Farmer sets their own farm location + story.
+router.post("/me/profile", requireFarmer, wrap(async (req: any, res) => {
+  await prisma.farmer.update({ where: { id: req.farmerId }, data: profileSchema.parse(req.body) });
+  res.json(await farmerDetail(req.farmerId));
+}));
+
 router.get("/me/shipments", requireFarmer, wrap(async (req: any, res) => {
   const list = await prisma.shipment.findMany({
     where: { farmerId: req.farmerId },
@@ -196,6 +213,12 @@ router.get("/farmers", requireOperator, wrap(async (_req, res) => {
       phone: f.phone,
       village: f.village,
       status: f.status,
+      lat: f.lat,
+      lng: f.lng,
+      bio: f.bio,
+      household: f.household,
+      yearsFarming: f.yearsFarming,
+      photoUrl: f.photoUrl,
       publicKey: f.wallet?.publicKey,
       balance: f.wallet ? await getAssetBalance(f.wallet.publicKey, config.assetCode) : 0,
       totalReceived: f.payments.reduce((s, p) => s + p.amount, 0),
@@ -208,6 +231,12 @@ router.get("/farmers", requireOperator, wrap(async (_req, res) => {
 router.post("/farmers/:id/approve", requireOperator, wrap(async (req, res) => {
   const f = await prisma.farmer.update({ where: { id: req.params.id }, data: { status: "active" } });
   res.json({ id: f.id, status: f.status });
+}));
+
+// Cooperative sets/edits a farmer's farm location + profile (helping them set it up).
+router.post("/farmers/:id/profile", requireOperator, wrap(async (req, res) => {
+  const f = await prisma.farmer.update({ where: { id: req.params.id }, data: profileSchema.parse(req.body) });
+  res.json({ id: f.id });
 }));
 
 router.get("/farmers/by-phone/:phone", wrap(async (req, res) => {
@@ -502,6 +531,12 @@ async function farmerDetail(id: string) {
     name: f.name,
     phone: f.phone,
     village: f.village,
+    lat: f.lat,
+    lng: f.lng,
+    bio: f.bio,
+    household: f.household,
+    yearsFarming: f.yearsFarming,
+    photoUrl: f.photoUrl,
     publicKey: f.wallet?.publicKey,
     explorer: f.wallet ? explorerAccount(f.wallet.publicKey) : null,
     balance,

@@ -150,6 +150,11 @@ body { background: #e8e3d7; }
 .act-amt.in { color: var(--green-2); }
 .act-amt.out { color: var(--ink); }
 
+/* farm map */
+.farm-map-wrap { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+.farm-pin { width: 18px; height: 18px; border-radius: 50%; background: var(--amber); border: 3px solid #fff; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4); }
+.leaflet-container { font-family: "Segoe UI", system-ui, sans-serif; z-index: 0; }
+
 /* ship tab */
 .create-cta { font-size: 15px; padding: 13px; }
 .ship-item {

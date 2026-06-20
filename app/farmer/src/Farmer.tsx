@@ -3,8 +3,9 @@ import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } fro
 import { api, fmtUsdc, fmtVnd } from "@shared/api";
 import { firebaseEnabled, auth } from "./firebase";
 import { FarmerShipments } from "./FarmerShipments";
+import { FarmProfile } from "./FarmProfile";
 import { PayoutCard } from "./PayoutCard";
-import { IconHome, IconShip, IconWallet } from "./icons";
+import { IconHome, IconShip, IconFarm, IconWallet } from "./icons";
 
 const RATE = 25400;
 
@@ -23,7 +24,7 @@ function fmtPhone(e164: string): string {
 export default function Farmer() {
   const [booting, setBooting] = useState(true);
   const [farmer, setFarmer] = useState<any>(null);
-  const [tab, setTab] = useState<"home" | "ship" | "wallet">("home");
+  const [tab, setTab] = useState<"home" | "ship" | "farm" | "wallet">("home");
   const [justPaid, setJustPaid] = useState<number | null>(null);
   const prevReceived = useRef<number | null>(null);
 
@@ -196,12 +197,14 @@ export default function Farmer() {
       <div className="appbody">
         {tab === "home" && <Home farmer={farmer} justPaid={justPaid} goWallet={() => setTab("wallet")} />}
         {tab === "ship" && <FarmerShipments />}
+        {tab === "farm" && <FarmProfile farmer={farmer} onSaved={setFarmer} />}
         {tab === "wallet" && <Wallet farmer={farmer} onChange={setFarmer} refresh={refresh} />}
       </div>
 
       <div className="tabbar">
         <button className={tab === "home" ? "on" : ""} onClick={() => setTab("home")}><span className="ic"><IconHome /></span>Home</button>
         <button className={tab === "ship" ? "on" : ""} onClick={() => setTab("ship")}><span className="ic"><IconShip /></span>Ship</button>
+        <button className={tab === "farm" ? "on" : ""} onClick={() => setTab("farm")}><span className="ic"><IconFarm /></span>Farm</button>
         <button className={tab === "wallet" ? "on" : ""} onClick={() => setTab("wallet")}><span className="ic"><IconWallet /></span>Wallet</button>
       </div>
     </div>

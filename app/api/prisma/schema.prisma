@@ -37,6 +37,13 @@ model Farmer {
   phone         String         @unique
   village       String?
   status        String         @default("active") // active | pending (self-registered, awaiting co-op approval)
+  // farm location (the traceability origin node) + farmer story
+  lat           Float?
+  lng           Float?
+  bio           String? // short story
+  household     String? // e.g. "Family of 5"
+  yearsFarming  Int?
+  photoUrl      String?
   // payout destination an anchor would send local currency to (set by the farmer)
   payoutType     String? // "bank" | "momo"
   payoutProvider String? // bank name, or "MoMo" / "ZaloPay"
