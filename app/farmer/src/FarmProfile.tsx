@@ -93,35 +93,32 @@ export function FarmProfile({ farmer, onSaved }: { farmer: any; onSaved: (f: any
 
   return (
     <>
-      <h2 className="sec-title">Your farm</h2>
-      <div className="card pad">
-        <div className="form-group-label">Location</div>
-        <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>Search your area, then tap the map to drop a pin on your farm.</div>
-        <PlaceSearch onPick={(la, ln) => { setLat(la); setLng(ln); setTarget([la, ln]); }} />
-        <div className="farm-map-wrap">
-          <MapContainer center={center} zoom={lat != null ? 13 : 9} style={{ height: 240, width: "100%" }}>
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-            <FlyTo target={target} />
-            <Picker pos={lat != null && lng != null ? [lat, lng] : null} onPick={(la, ln) => { setLat(la); setLng(ln); }} />
-          </MapContainer>
-        </div>
-        {lat != null && lng != null
-          ? <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>📍 {lat.toFixed(5)}, {lng.toFixed(5)}</div>
-          : <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>No location set yet.</div>}
-
-        <div className="form-group-label" style={{ marginTop: 20 }}>Farm story</div>
-        <div className="field"><label>Your story</label>
-          <input value={bio} onChange={(e) => setBio(e.target.value)} placeholder="e.g. Third-generation coffee grower" /></div>
-        <div className="row" style={{ gap: 10 }}>
-          <div className="field"><label>Household</label>
-            <input value={household} onChange={(e) => setHousehold(e.target.value)} placeholder="Family of 5" /></div>
-          <div className="field"><label>Years farming</label>
-            <input type="number" inputMode="numeric" value={years} onChange={(e) => setYears(e.target.value)} /></div>
-        </div>
-
-        <button className="btn-green block" onClick={save} disabled={busy} style={{ marginTop: 6 }}>{busy ? "Saving…" : "Save farm details"}</button>
-        {notice && <div className={`notice ${notice.ok ? "notice-ok" : "notice-err"}`}>{notice.msg}</div>}
+      <div className="form-group-label">Location</div>
+      <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>Search your area, then tap the map to drop a pin on your farm.</div>
+      <PlaceSearch onPick={(la, ln) => { setLat(la); setLng(ln); setTarget([la, ln]); }} />
+      <div className="farm-map-wrap">
+        <MapContainer center={center} zoom={lat != null ? 13 : 9} style={{ height: 240, width: "100%" }}>
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+          <FlyTo target={target} />
+          <Picker pos={lat != null && lng != null ? [lat, lng] : null} onPick={(la, ln) => { setLat(la); setLng(ln); }} />
+        </MapContainer>
       </div>
+      {lat != null && lng != null
+        ? <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>📍 {lat.toFixed(5)}, {lng.toFixed(5)}</div>
+        : <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>No location set yet.</div>}
+
+      <div className="form-group-label" style={{ marginTop: 20 }}>Farm story</div>
+      <div className="field"><label>Your story</label>
+        <input value={bio} onChange={(e) => setBio(e.target.value)} placeholder="e.g. Third-generation coffee grower" /></div>
+      <div className="row" style={{ gap: 10 }}>
+        <div className="field"><label>Household</label>
+          <input value={household} onChange={(e) => setHousehold(e.target.value)} placeholder="Family of 5" /></div>
+        <div className="field"><label>Years farming</label>
+          <input type="number" inputMode="numeric" value={years} onChange={(e) => setYears(e.target.value)} /></div>
+      </div>
+
+      <button className="btn-green block" onClick={save} disabled={busy} style={{ marginTop: 6 }}>{busy ? "Saving…" : "Save farm details"}</button>
+      {notice && <div className={`notice ${notice.ok ? "notice-ok" : "notice-err"}`}>{notice.msg}</div>}
     </>
   );
 }

@@ -5,14 +5,14 @@ import { Select } from "./Select";
 const BANKS = ["Vietcombank", "Techcombank", "BIDV", "VietinBank", "Agribank", "MB Bank", "ACB"];
 const WALLETS = ["MoMo", "ZaloPay", "Viettel Money"];
 
-export function PayoutCard({ farmer, onSaved }: any) {
+export function PayoutCard({ farmer, onSaved, bare }: any) {
   const [open, setOpen] = useState(false);
   const p = farmer.payout;
 
   return (
     <>
       {p ? (
-        <div className="card pad payout-summary">
+        <div className={bare ? "payout-summary" : "card pad payout-summary"}>
           <div style={{ flex: 1 }}>
             <div className="payout-provider">{p.provider} ••••{(p.account || "").slice(-4)}</div>
             <div className="muted" style={{ fontSize: 12.5 }}>

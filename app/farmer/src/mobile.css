@@ -150,6 +150,20 @@ body { background: #e8e3d7; }
 .act-amt.in { color: var(--green-2); }
 .act-amt.out { color: var(--ink); }
 
+/* collapsible section */
+.collapse { margin-bottom: 12px; overflow: hidden; }
+.collapse-head {
+  width: 100%; background: none; border: none; cursor: pointer; text-align: left;
+  display: flex; align-items: center; gap: 12px; padding: 15px 18px;
+}
+.collapse.open .collapse-head { border-bottom: 1px solid var(--green-tint); }
+.collapse-titles { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.collapse-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+.collapse-summary { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.collapse-chev { color: var(--muted); font-size: 24px; line-height: 1; flex-shrink: 0; transition: transform 0.2s ease; }
+.collapse.open .collapse-chev { transform: rotate(90deg); }
+.collapse-body { padding: 16px 18px 18px; }
+
 /* profile header */
 .profile-head { display: flex; align-items: center; gap: 14px; padding: 6px 4px 16px; }
 .profile-avatar {
