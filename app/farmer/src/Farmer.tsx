@@ -3,9 +3,8 @@ import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } fro
 import { api, fmtUsdc, fmtVnd } from "@shared/api";
 import { firebaseEnabled, auth } from "./firebase";
 import { FarmerShipments } from "./FarmerShipments";
-import { FarmProfile } from "./FarmProfile";
-import { PayoutCard } from "./PayoutCard";
-import { IconHome, IconShip, IconFarm, IconWallet } from "./icons";
+import { Profile } from "./Profile";
+import { IconHome, IconShip, IconWallet, IconUser } from "./icons";
 
 const RATE = 25400;
 
@@ -24,7 +23,7 @@ function fmtPhone(e164: string): string {
 export default function Farmer() {
   const [booting, setBooting] = useState(true);
   const [farmer, setFarmer] = useState<any>(null);
-  const [tab, setTab] = useState<"home" | "ship" | "farm" | "wallet">("home");
+  const [tab, setTab] = useState<"home" | "ship" | "wallet" | "profile">("home");
   const [justPaid, setJustPaid] = useState<number | null>(null);
   const prevReceived = useRef<number | null>(null);
 
@@ -191,21 +190,20 @@ export default function Farmer() {
         <span className="brand">Tani<span className="dot">.</span></span>
         <span className="appbar-sub">{farmer.name.split(" ").slice(-1)[0]}</span>
         <span className="spacer" />
-        <button onClick={signOut}>Sign out</button>
       </div>
 
       <div className="appbody">
         {tab === "home" && <Home farmer={farmer} justPaid={justPaid} goWallet={() => setTab("wallet")} />}
         {tab === "ship" && <FarmerShipments />}
-        {tab === "farm" && <FarmProfile farmer={farmer} onSaved={setFarmer} />}
-        {tab === "wallet" && <Wallet farmer={farmer} onChange={setFarmer} refresh={refresh} />}
+        {tab === "wallet" && <Wallet farmer={farmer} onChange={setFarmer} refresh={refresh} goProfile={() => setTab("profile")} />}
+        {tab === "profile" && <Profile farmer={farmer} onChange={setFarmer} onSignOut={signOut} />}
       </div>
 
       <div className="tabbar">
         <button className={tab === "home" ? "on" : ""} onClick={() => setTab("home")}><span className="ic"><IconHome /></span>Home</button>
         <button className={tab === "ship" ? "on" : ""} onClick={() => setTab("ship")}><span className="ic"><IconShip /></span>Ship</button>
-        <button className={tab === "farm" ? "on" : ""} onClick={() => setTab("farm")}><span className="ic"><IconFarm /></span>Farm</button>
         <button className={tab === "wallet" ? "on" : ""} onClick={() => setTab("wallet")}><span className="ic"><IconWallet /></span>Wallet</button>
+        <button className={tab === "profile" ? "on" : ""} onClick={() => setTab("profile")}><span className="ic"><IconUser /></span>Profile</button>
       </div>
     </div>
   );
@@ -250,7 +248,7 @@ function Home({ farmer, justPaid, goWallet }: any) {
   );
 }
 
-function Wallet({ farmer, onChange, refresh }: any) {
+function Wallet({ farmer, refresh, goProfile }: any) {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -278,13 +276,12 @@ function Wallet({ farmer, onChange, refresh }: any) {
         <b>{fmtUsdc(farmer.balance)} USDC</b>
       </div>
 
-      <h2 className="sec-title">Payout destination</h2>
-      <PayoutCard farmer={farmer} onSaved={onChange} />
-
       <h2 className="sec-title">Withdraw to cash</h2>
       <div className="card pad">
         {!farmer.payout ? (
-          <div className="muted" style={{ fontSize: 13.5 }}>Add a payout destination above to withdraw.</div>
+          <div className="muted" style={{ fontSize: 13.5 }}>
+            Add a payout destination in <button className="link" onClick={goProfile}>Profile</button> to withdraw.
+          </div>
         ) : (
           <>
             <div className="row" style={{ gap: 10 }}>

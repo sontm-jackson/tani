@@ -31,6 +31,15 @@ export function IconFarm() {
   );
 }
 
+export function IconUser() {
+  return (
+    <svg {...base}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 4-6.5 8-6.5s8 2.5 8 6.5" />
+    </svg>
+  );
+}
+
 export function IconWallet() {
   return (
     <svg {...base}>
