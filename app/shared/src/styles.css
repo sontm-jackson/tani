@@ -98,9 +98,6 @@ tr:last-child td { border-bottom: none; }
 
 /* inline forms */
 .form-panel { margin-bottom: 14px; border-color: var(--green-2); }
-.contrib-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; margin: 8px 0; }
-.contrib-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13.5px; }
-.contrib-row span { color: var(--ink); }
 
 /* lot / disbursement items */
 .lot { display: flex; align-items: center; gap: 18px; padding: 18px 20px; }
@@ -214,7 +211,6 @@ input:focus, select:focus { outline: none; border-color: var(--green-2); }
   .topbar .wrap { gap: 14px; }
   .hero { flex-wrap: wrap; }
   .disb .payments { grid-template-columns: 1fr; }
-  .contrib-grid { grid-template-columns: 1fr; }
   .wrap { padding: 0 16px; }
   table { font-size: 13px; }
   th:nth-child(2), td:nth-child(2) { display: none; } /* hide village col on phones */

@@ -5,7 +5,6 @@ import { config, explorerTx, explorerAccount } from "./config.js";
 import { usdc } from "./stellar/client.js";
 import { getAssetBalance } from "./stellar/account.js";
 import { issueAsset } from "./stellar/payments.js";
-import { provisionWallet } from "./services/custody.js";
 import { processEvent } from "./services/disburse.js";
 import { cashOut } from "./services/anchor.js";
 import { anchorInfo } from "./services/anchorInfo.js";
@@ -14,7 +13,6 @@ import { requestOtp, verifyOtp, consumeOtp, farmerIdFromToken, issueSessionForPh
 import { verifyFirebasePhone } from "./services/firebaseAuth.js";
 import { provisionFarmer } from "./services/farmers.js";
 import { firebaseConfigured } from "./config.js";
-import { encrypt } from "./crypto.js";
 
 export const router = Router();
 
