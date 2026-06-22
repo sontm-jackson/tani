@@ -11,7 +11,7 @@ import { anchorInfo } from "./services/anchorInfo.js";
 import { newQrToken, verifyAndPay } from "./services/shipments.js";
 import { requestOtp, verifyOtp, consumeOtp, farmerIdFromToken, issueSessionForPhone, operatorLogin, operatorIdFromToken } from "./services/auth.js";
 import { verifyFirebasePhone } from "./services/firebaseAuth.js";
-import { provisionFarmer } from "./services/farmers.js";
+import { provisionFarmer, toVnE164 } from "./services/farmers.js";
 import { firebaseConfigured } from "./config.js";
 
 export const router = Router();
@@ -288,7 +288,8 @@ router.post("/farmers", requireOperator, wrap(async (req, res) => {
     .parse(req.body);
   const op = await prisma.operator.findFirst();
   if (!op) throw new Error("no operator");
-  const farmer = await provisionFarmer(op.id, body);
+  // Canonicalize the phone so the farmer can sign in regardless of how it was typed.
+  const farmer = await provisionFarmer(op.id, { ...body, phone: toVnE164(body.phone) });
   res.json({ id: farmer.id, name: farmer.name, phone: farmer.phone, village: farmer.village });
 }));
 

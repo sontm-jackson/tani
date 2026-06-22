@@ -4,6 +4,13 @@
    map) and short ones (Rules) doesn't shift the centered layout sideways. */
 html { scrollbar-gutter: stable; }
 
+/* table pagination */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.pager-ctrl { display: flex; align-items: center; gap: 10px; }
+.pager-page { color: var(--muted); font-size: 12.5px; }
+.pager .btn-ghost { padding: 6px 13px; font-size: 13px; }
+.pager .btn-ghost:disabled { opacity: 0.45; cursor: default; }
+
 /* fund-pool modal */
 .fund-qr { display: flex; justify-content: center; padding: 16px; background: var(--green-tint); border-radius: 12px; margin-bottom: 14px; }
 .fund-qr img { border-radius: 8px; display: block; }

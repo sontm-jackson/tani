@@ -256,21 +256,7 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
                 <NewFarmerForm busy={busy === "farmer"}
                   onSubmit={(body: any) => run("farmer", () => api.addFarmer(body), () => `Added ${body.name} (wallet provisioned).`).then(() => setPanel(null))} />
               )}
-              <div className="card pad">
-                <table>
-                  <thead><tr><th>Farmer</th><th>Village</th><th className="num">Wallet balance</th><th className="num">Total received</th></tr></thead>
-                  <tbody>
-                    {active.map((f) => (
-                      <tr key={f.id}>
-                        <td>{f.name}</td>
-                        <td className="muted">{f.village}</td>
-                        <td className="num">{fmtUsdc(f.balance)} USDC</td>
-                        <td className="num">{fmtUsdc(f.totalReceived)} USDC</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <FarmerTable rows={active} />
             </div>
           </>
         )}
@@ -285,21 +271,7 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
               <NewRuleForm busy={busy === "rule"}
                 onSubmit={(body: any) => run("rule", () => api.createRule(body), () => "Rule created.").then(() => setPanel(null))} />
             )}
-            <div className="card pad">
-              <table>
-                <thead><tr><th>Rule</th><th>Commodity</th><th>On event</th><th className="num">Rate / kg</th></tr></thead>
-                <tbody>
-                  {rules.map((r) => (
-                    <tr key={r.id}>
-                      <td>{r.name}</td>
-                      <td><span className={`pill commodity-${r.commodity}`}>{r.commodity}</span></td>
-                      <td className="muted mono">{r.eventType}</td>
-                      <td className="num">{r.ratePerKg} USDC</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <RulesTable rows={rules} />
           </div>
         )}
       </div>
@@ -321,6 +293,84 @@ function AnchorCard({ anchor }: { anchor: any }) {
         </>
       )}
     </div>
+  );
+}
+
+const PAGE_SIZE = 10;
+
+// Client-side pager. Data is already loaded; this keeps large rosters/rule sets
+// from rendering hundreds of rows at once. (Server-side limit/offset is the next
+// step if a single co-op ever has thousands of farmers.)
+function Pager({ page, pages, total, onPage }: { page: number; pages: number; total: number; onPage: (p: number) => void }) {
+  if (total <= PAGE_SIZE) return null;
+  const from = page * PAGE_SIZE + 1;
+  const to = Math.min(total, (page + 1) * PAGE_SIZE);
+  return (
+    <div className="pager">
+      <span className="muted">{from}–{to} of {total}</span>
+      <div className="pager-ctrl">
+        <button className="btn-ghost" disabled={page === 0} onClick={() => onPage(page - 1)}>Prev</button>
+        <span className="pager-page">Page {page + 1} / {pages}</span>
+        <button className="btn-ghost" disabled={page >= pages - 1} onClick={() => onPage(page + 1)}>Next</button>
+      </div>
+    </div>
+  );
+}
+
+function usePage(total: number) {
+  const [page, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const p = Math.min(page, pages - 1);
+  return { p, pages, from: p * PAGE_SIZE, to: p * PAGE_SIZE + PAGE_SIZE, setPage };
+}
+
+function FarmerTable({ rows }: { rows: any[] }) {
+  const { p, pages, from, to, setPage } = usePage(rows.length);
+  return (
+    <>
+      <div className="card pad">
+        <table>
+          <thead><tr><th>Farmer</th><th>Village</th><th className="num">Wallet balance</th><th className="num">Total received</th></tr></thead>
+          <tbody>
+            {rows.slice(from, to).map((f) => (
+              <tr key={f.id}>
+                <td>{f.name}</td>
+                <td className="muted">{f.village}</td>
+                <td className="num">{fmtUsdc(f.balance)} USDC</td>
+                <td className="num">{fmtUsdc(f.totalReceived)} USDC</td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td colSpan={4} className="muted" style={{ padding: "6px 0" }}>No active farmers yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <Pager page={p} pages={pages} total={rows.length} onPage={setPage} />
+    </>
+  );
+}
+
+function RulesTable({ rows }: { rows: any[] }) {
+  const { p, pages, from, to, setPage } = usePage(rows.length);
+  return (
+    <>
+      <div className="card pad">
+        <table>
+          <thead><tr><th>Rule</th><th>Commodity</th><th>On event</th><th className="num">Rate / kg</th></tr></thead>
+          <tbody>
+            {rows.slice(from, to).map((r) => (
+              <tr key={r.id}>
+                <td>{r.name}</td>
+                <td><span className={`pill commodity-${r.commodity}`}>{r.commodity}</span></td>
+                <td className="muted mono">{r.eventType}</td>
+                <td className="num">{r.ratePerKg} USDC</td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td colSpan={4} className="muted" style={{ padding: "6px 0" }}>No rules yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <Pager page={p} pages={pages} total={rows.length} onPage={setPage} />
+    </>
   );
 }
 
@@ -351,10 +401,10 @@ function NewFarmerForm({ busy, onSubmit }: any) {
     <div className="card pad form-panel">
       <div className="row">
         <div className="field"><label>Name</label><input value={name} onChange={(e) => setName(e.target.value)} /></div>
-        <div className="field"><label>Phone</label><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+8490..." /></div>
+        <div className="field"><label>Phone</label><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0901 234 567" /></div>
         <div className="field"><label>Village</label><input value={village} onChange={(e) => setVillage(e.target.value)} /></div>
       </div>
-      <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>Provisions a custodial Stellar wallet on testnet (~5s). Added farmers are active immediately.</div>
+      <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>Provisions a custodial Stellar wallet on testnet (~5s). Active immediately — the farmer signs in with this phone number (any format) and a one-time code; no separate sign-up.</div>
       <button className="btn-green" disabled={busy || !name || !phone} onClick={() => onSubmit({ name, phone, village })}>{busy ? "Provisioning…" : "Add farmer"}</button>
     </div>
   );
