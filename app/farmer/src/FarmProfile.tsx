@@ -6,6 +6,10 @@ import { api } from "@shared/api";
 
 const pin = L.divIcon({ className: "", html: '<div class="farm-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
 
+// Lock the map to inland Vietnam so the contested East Sea / Hoàng Sa / Trường Sa
+// area never renders (sovereignty-safe stopgap until we move to a VN map provider).
+const VN_BOUNDS: [[number, number], [number, number]] = [[7.5, 101.5], [23.8, 110.0]];
+
 function Picker({ pos, onPick }: { pos: [number, number] | null; onPick: (la: number, ln: number) => void }) {
   useMapEvents({ click(e) { onPick(e.latlng.lat, e.latlng.lng); } });
   return pos ? <Marker position={pos} icon={pin} /> : null;
@@ -98,8 +102,8 @@ export function FarmProfile({ farmer, onSaved }: { farmer: any; onSaved: (f: any
       <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>Search your area, then tap the map to drop a pin on your farm.</div>
       <PlaceSearch onPick={(la, ln) => { setLat(la); setLng(ln); setTarget([la, ln]); }} />
       <div className="farm-map-wrap">
-        <MapContainer center={center} zoom={lat != null ? 13 : 9} style={{ height: 240, width: "100%" }}>
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+        <MapContainer center={center} zoom={lat != null ? 13 : 9} minZoom={5} maxBounds={VN_BOUNDS} maxBoundsViscosity={1} style={{ height: 240, width: "100%" }}>
+          <TileLayer bounds={VN_BOUNDS} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
           <FlyTo target={target} />
           <Picker pos={lat != null && lng != null ? [lat, lng] : null} onPick={(la, ln) => { setLat(la); setLng(ln); }} />
         </MapContainer>

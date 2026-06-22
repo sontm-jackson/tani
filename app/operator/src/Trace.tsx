@@ -4,6 +4,12 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { api, fmtUsdc } from "@shared/api";
 
+// Lock the map to inland Vietnam so the contested East Sea / Hoàng Sa / Trường Sa
+// area never renders (a sovereignty-safe stopgap until we move to a VN map provider).
+// All farms are inland, so this costs nothing. East edge 110°E sits past the
+// mainland coast but west of the offshore islands (~111°E+).
+const VN_BOUNDS: [[number, number], [number, number]] = [[7.5, 101.5], [23.8, 110.0]];
+
 const pinDim = L.divIcon({ className: "", html: '<div class="farm-pin dim"></div>', iconSize: [12, 12], iconAnchor: [6, 6] });
 const pinHot = L.divIcon({ className: "", html: '<div class="farm-pin hot"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
 const pin = L.divIcon({ className: "", html: '<div class="farm-pin"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
@@ -89,8 +95,8 @@ export function Trace({ farmers, disbursements }: { farmers: any[]; disbursement
 
       <div className="trace-grid">
         <div className="card" style={{ overflow: "hidden", padding: 0 }}>
-          <MapContainer center={[11.85, 108.4]} zoom={9} scrollWheelZoom style={{ height: 520, width: "100%" }}>
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
+          <MapContainer center={[11.85, 108.4]} zoom={9} minZoom={5} maxBounds={VN_BOUNDS} maxBoundsViscosity={1} scrollWheelZoom style={{ height: 520, width: "100%" }}>
+            <TileLayer bounds={VN_BOUNDS} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
             {located.map((f) => {
               const hot = hotIds.has(f.id);
               return (
