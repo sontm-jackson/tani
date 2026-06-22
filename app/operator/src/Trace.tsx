@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { api, fmtUsdc } from "@shared/api";
@@ -33,6 +33,7 @@ const pin = L.divIcon({ className: "", html: '<div class="farm-pin"></div>', ico
 type Result =
   | { kind: "shipment"; s: any }
   | { kind: "lot"; lot: any; disb: any | null }
+  | { kind: "farm"; f: any }
   | null;
 
 // Pans/zooms the map to the traced origin(s) when a result is selected.
@@ -45,7 +46,7 @@ function FitTo({ positions }: { positions: [number, number][] }) {
   return null;
 }
 
-export function Trace({ farmers, disbursements }: { farmers: any[]; disbursements: any[] }) {
+export function Trace({ farmers, disbursements, shipments = [] }: { farmers: any[]; disbursements: any[]; shipments?: any[] }) {
   const [lots, setLots] = useState<any[]>([]);
   const [q, setQ] = useState("");
   const [result, setResult] = useState<Result>(null);
@@ -53,8 +54,11 @@ export function Trace({ farmers, disbursements }: { farmers: any[]; disbursement
 
   useEffect(() => { api.lots().then(setLots).catch(() => {}); }, []);
 
-  async function search() {
-    const v = q.trim();
+  async function search() { runTrace(q); }
+
+  async function runTrace(raw: string) {
+    const v = raw.trim();
+    setQ(raw);
     setErr("");
     if (!v) { setResult(null); return; }
     const lot = lots.find((l) => l.code.toLowerCase() === v.toLowerCase())
@@ -84,64 +88,131 @@ export function Trace({ farmers, disbursements }: { farmers: any[]; disbursement
       hotIds.add(c.farmerId);
       if (c.lat != null && c.lng != null) positions.push([c.lat, c.lng]);
     }
+  } else if (result?.kind === "farm" && result.f.lat != null) {
+    hotIds.add(result.f.id);
+    positions = [[result.f.lat, result.f.lng]];
   }
 
   const located = farmers.filter((f) => f.lat != null && f.lng != null);
   const active = result != null;
 
+  // live example chips: prefer a paid bag and a disbursed lot so a click shows proof
+  const exShip = shipments.find((s) => s.status === "paid") ?? shipments[0];
+  const exLot = lots.find((l) => disbursements.some((d) => d.lot === l.code && d.status === "success")) ?? lots[0];
+  const examples = [
+    exShip && { q: exShip.qrToken as string, label: exShip.qrToken as string },
+    exLot && { q: exLot.code as string, label: exLot.code as string },
+  ].filter(Boolean) as { q: string; label: string }[];
+
   return (
     <div className="section">
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-        <h2 style={{ flex: 1 }}>Trace</h2>
-        <span className="muted" style={{ fontSize: 13 }}>{located.length} farms geolocated</span>
+      <div className="trace-head">
+        <div>
+          <h2 style={{ margin: 0 }}>Trace</h2>
+          <p className="sub" style={{ margin: "2px 0 0" }}>
+            Search a bag's QR or an export lot to see its exact origin farms on the map, with payments proven on-chain.
+          </p>
+        </div>
+        <span className="trace-count">{located.length} / {farmers.length} farms geolocated</span>
       </div>
-      <p className="sub" style={{ marginTop: -4 }}>
-        Search a bag's QR code or an export lot to see its exact origin farms on the map, with verified payments proven on-chain.
-      </p>
 
-      <div className="card pad" style={{ marginBottom: 14 }}>
-        <div className="row" style={{ gap: 10 }}>
-          <input placeholder="QR code (TANI-…) or lot code (LOT-…)" value={q}
-            onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} style={{ flex: 2 }} />
-          <button className="btn-green" style={{ minWidth: 110 }} onClick={search}>Trace</button>
+      <div className="card pad trace-search">
+        <div className="trace-search-row">
+          <div className="trace-field">
+            <SearchIcon />
+            <input placeholder="QR code (TANI-…) or lot code (LOT-…)" value={q}
+              onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} />
+          </div>
+          <button className="btn-green" onClick={search}>Trace</button>
           {active && <button className="btn-ghost" onClick={() => { setQ(""); setResult(null); setErr(""); }}>Clear</button>}
         </div>
-        {err && <div className="notice notice-err" style={{ marginBottom: 0 }}>{err}</div>}
+        {!active && examples.length > 0 && (
+          <div className="trace-examples">
+            <span className="muted">Try</span>
+            {examples.map((ex) => (
+              <button key={ex.q} className="trace-chip" onClick={() => runTrace(ex.q)}>{ex.label}</button>
+            ))}
+          </div>
+        )}
+        {err && <div className="notice notice-err" style={{ marginBottom: 0, marginTop: 12 }}>{err}</div>}
       </div>
 
       <div className="trace-grid">
-        <div className="card" style={{ overflow: "hidden", padding: 0 }}>
-          <MapContainer center={[11.85, 108.4]} zoom={9} minZoom={5} maxBounds={VN_BOUNDS} maxBoundsViscosity={1} scrollWheelZoom style={{ height: 520, width: "100%" }}>
+        <div className="card trace-map">
+          <MapContainer center={[11.85, 108.4]} zoom={9} minZoom={5} maxBounds={VN_BOUNDS} maxBoundsViscosity={1} scrollWheelZoom style={{ height: 600, width: "100%" }}>
             <TileLayer bounds={TILE_BOUNDS} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
             <Marker position={HOANG_SA} icon={hoangSaIcon} interactive={false} />
             <Marker position={TRUONG_SA} icon={truongSaIcon} interactive={false} />
             {located.map((f) => {
               const hot = hotIds.has(f.id);
               return (
-                <Marker key={f.id} position={[f.lat, f.lng]} icon={hot ? pinHot : active ? pinDim : pin}>
-                  <Popup>
-                    <div className="farm-pop">
-                      <div className="fp-name">{f.name}</div>
-                      <div className="fp-sub">{f.village}{f.yearsFarming ? ` · ${f.yearsFarming} yrs` : ""}</div>
-                      {f.bio && <div className="fp-bio">{f.bio}</div>}
-                      <div className="fp-stat">Received <b>{fmtUsdc(f.totalReceived)} USDC</b></div>
-                    </div>
-                  </Popup>
-                </Marker>
+                <Marker key={f.id} position={[f.lat, f.lng]} icon={hot ? pinHot : active ? pinDim : pin}
+                  eventHandlers={{ click: () => setResult({ kind: "farm", f }) }} />
               );
             })}
             {positions.length > 0 && <FitTo positions={positions} />}
           </MapContainer>
+          <div className="trace-legend">
+            <span><i className="ldot hot" />Traced origin</span>
+            <span><i className="ldot warm" />Farm</span>
+            <span className="trace-legend-sp" />
+            <span className="muted">Hoàng Sa &amp; Trường Sa · Việt Nam</span>
+          </div>
         </div>
 
         <div className="trace-panel">
-          {!result && (
-            <div className="card pad muted" style={{ fontSize: 13.5 }}>
-              Trace a code to light up its origin. Every farm here is a verified node — a location, a story, and on-chain payments.
-            </div>
-          )}
+          {!result && <TraceEmpty />}
+          {result?.kind === "farm" && <FarmTrace f={result.f} />}
           {result?.kind === "shipment" && <ShipmentTrace s={result.s} />}
           {result?.kind === "lot" && <LotTrace lot={result.lot} disb={result.disb} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+    </svg>
+  );
+}
+
+function TraceEmpty() {
+  return (
+    <div className="card pad trace-empty muted">
+      Click a farm on the map to see its origin, story, and payments — or search a bag's QR or an export lot above.
+    </div>
+  );
+}
+
+function FarmTrace({ f }: { f: any }) {
+  const located = f.lat != null && f.lng != null;
+  const explorer = f.publicKey ? `https://stellar.expert/explorer/testnet/account/${f.publicKey}` : null;
+  return (
+    <div className="card trace-card">
+      <div className="trace-card-head">
+        <div className="eyebrow">Farm origin</div>
+        <h3>{f.name}</h3>
+        <div className="trace-sub">
+          <span>{f.village}{f.yearsFarming ? ` · ${f.yearsFarming} yrs farming` : ""}</span>
+          {located ? <span className="pill pill-success">pinned</span> : <span className="pill pill-pending">no pin</span>}
+        </div>
+      </div>
+      <div className="trace-card-body">
+        {f.bio && <p className="trace-bio">{f.bio}</p>}
+        <div className="trace-rows">
+          {f.household && <div className="trace-row"><span>Household</span><b>{f.household}</b></div>}
+          {located && <div className="trace-row"><span>Location</span><b>{f.lat.toFixed(4)}, {f.lng.toFixed(4)}</b></div>}
+          <div className="trace-row"><span>Wallet balance</span><b>{fmtUsdc(f.balance)} USDC</b></div>
+        </div>
+        <div className="trace-paid">
+          <div>
+            <div className="trace-paid-lbl">Total received</div>
+            <div className="trace-paid-amt">{fmtUsdc(f.totalReceived)} USDC</div>
+          </div>
+          {explorer && <a className="trace-onchain" href={explorer} target="_blank" rel="noreferrer">wallet ↗</a>}
         </div>
       </div>
     </div>
@@ -160,25 +231,33 @@ function ShipmentTrace({ s }: { s: any }) {
     ["Moisture", s.moisture != null ? `${s.moisture}%` : null], ["Certification", s.certification], ["Harvest", s.harvestDate],
   ];
   return (
-    <div className="card pad">
-      <div className="eyebrow">Bag · {s.qrToken}</div>
-      <h3 style={{ margin: "4px 0 2px" }}>{s.farmerName}</h3>
-      <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-        {s.village}{s.farmerLat != null ? " · origin pinned" : " · location not set"} · <StatusPill status={s.status} />
+    <div className="card trace-card">
+      <div className="trace-card-head">
+        <div className="eyebrow">Bag · {s.qrToken}</div>
+        <h3>{s.farmerName}</h3>
+        <div className="trace-sub">
+          <span>{s.village}{s.farmerLat != null ? " · origin pinned" : " · no location"}</span>
+          <StatusPill status={s.status} />
+        </div>
       </div>
-      <div className="trace-rows">
-        {rows.filter(([, v]) => v != null && v !== "").map(([k, v]) => (
-          <div className="trace-row" key={k}><span>{k}</span><b>{String(v)}</b></div>
-        ))}
-        {s.status === "paid" && (
-          <>
-            <div className="trace-row"><span>Verified weight</span><b>{s.verifiedKg}kg</b></div>
-            <div className="trace-row"><span>Paid</span><b>{fmtUsdc(s.amountPaid)} USDC</b></div>
-          </>
+      <div className="trace-card-body">
+        <div className="trace-rows">
+          {rows.filter(([, v]) => v != null && v !== "").map(([k, v]) => (
+            <div className="trace-row" key={k}><span>{k}</span><b>{String(v)}</b></div>
+          ))}
+        </div>
+        {s.status === "paid" ? (
+          <div className="trace-paid">
+            <div>
+              <div className="trace-paid-lbl">Paid on {s.verifiedKg}kg verified</div>
+              <div className="trace-paid-amt">{fmtUsdc(s.amountPaid)} USDC</div>
+            </div>
+            {s.explorer && <a className="trace-onchain" href={s.explorer} target="_blank" rel="noreferrer">on-chain ↗</a>}
+          </div>
+        ) : (
+          <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>Not yet verified at arrival.</div>
         )}
       </div>
-      {s.explorer && <a className="link" href={s.explorer} target="_blank" rel="noreferrer">payment on-chain ↗</a>}
-      {s.status !== "paid" && <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>Not yet verified at arrival.</div>}
     </div>
   );
 }
@@ -187,37 +266,41 @@ function LotTrace({ lot, disb }: { lot: any; disb: any | null }) {
   const located = lot.contributions.filter((c: any) => c.lat != null).length;
   const payOf = (name: string) => disb?.payments?.find((p: any) => p.farmerName === name)?.amount;
   return (
-    <div className="card pad">
-      <div className="eyebrow">Export lot · {lot.code}</div>
-      <h3 style={{ margin: "4px 0 2px" }}>
-        {lot.totalKg}kg <span className={`pill commodity-${lot.commodity}`} style={{ marginLeft: 6 }}>{lot.commodity}</span>
-      </h3>
-      <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-        {lot.contributions.length} origin farms · {located} geolocated · <StatusPill status={lot.status} />
-      </div>
-      <div className="trace-rows">
-        {lot.contributions.map((c: any) => (
-          <div className="trace-row" key={c.farmerId}>
-            <span>{c.farmerName}{c.lat == null ? " ⚠" : ""}</span>
-            <b>{c.quantityKg}kg{payOf(c.farmerName) != null ? ` · ${fmtUsdc(payOf(c.farmerName))} USDC` : ""}</b>
-          </div>
-        ))}
-      </div>
-      {disb?.status === "success" ? (
-        <>
-          <div className="trace-row" style={{ fontWeight: 700, borderTop: "1px solid var(--line)", marginTop: 4, paddingTop: 8 }}>
-            <span>Total disbursed</span><b>{fmtUsdc(disb.totalAmount)} USDC</b>
-          </div>
-          {disb.explorer && <a className="link" href={disb.explorer} target="_blank" rel="noreferrer">batch payment on-chain ↗</a>}
-        </>
-      ) : (
-        <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-          {disb?.status === "failed" ? "Last disbursement failed — retry from the engine." : "Not yet disbursed."}
+    <div className="card trace-card">
+      <div className="trace-card-head">
+        <div className="eyebrow">Export lot · {lot.code}</div>
+        <h3>{lot.totalKg}kg <span className={`pill commodity-${lot.commodity}`}>{lot.commodity}</span></h3>
+        <div className="trace-sub">
+          <span>{lot.contributions.length} origin farms · {located} geolocated</span>
+          <StatusPill status={lot.status} />
         </div>
-      )}
-      {located < lot.contributions.length && (
-        <div className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>⚠ farms without an approved pin aren't EUDR trace-grade yet.</div>
-      )}
+      </div>
+      <div className="trace-card-body">
+        <div className="trace-rows">
+          {lot.contributions.map((c: any) => (
+            <div className="trace-row" key={c.farmerId}>
+              <span>{c.farmerName}{c.lat == null && <span className="trace-warn">no pin</span>}</span>
+              <b>{c.quantityKg}kg{payOf(c.farmerName) != null ? ` · ${fmtUsdc(payOf(c.farmerName))} USDC` : ""}</b>
+            </div>
+          ))}
+        </div>
+        {disb?.status === "success" ? (
+          <div className="trace-paid">
+            <div>
+              <div className="trace-paid-lbl">Batch disbursed</div>
+              <div className="trace-paid-amt">{fmtUsdc(disb.totalAmount)} USDC</div>
+            </div>
+            {disb.explorer && <a className="trace-onchain" href={disb.explorer} target="_blank" rel="noreferrer">on-chain ↗</a>}
+          </div>
+        ) : (
+          <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+            {disb?.status === "failed" ? "Last disbursement failed." : "Not yet disbursed."}
+          </div>
+        )}
+        {located < lot.contributions.length && (
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>Farms without an approved pin aren't EUDR trace-grade yet.</div>
+        )}
+      </div>
     </div>
   );
 }
