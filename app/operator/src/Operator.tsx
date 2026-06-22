@@ -6,12 +6,13 @@ import { Trace } from "./Trace";
 // Arrivals is the daily workspace (scan -> verify -> pay), so it leads and is the
 // default. The batch "Lots" path is hidden from the UI to keep one clear payment
 // spine; the lot engine still exists in the API.
-const TABS = ["Arrivals", "Approvals", "Dashboard", "Farmers", "Trace", "Rules"] as const;
+const TABS = ["Dashboard", "Trace", "Arrivals", "Approvals", "Farmers", "Rules"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function Operator({ onLogout }: { onLogout: () => void }) {
   const [op, setOp] = useState<any>(null);
   const [disbs, setDisbs] = useState<any[]>([]);
+  const [ships, setShips] = useState<any[]>([]);
   const [farmers, setFarmers] = useState<any[]>([]);
   const [rules, setRules] = useState<any[]>([]);
   const [anchor, setAnchor] = useState<any>(null);
@@ -19,13 +20,13 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
   const [notice, setNotice] = useState<{ ok: boolean; msg: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [panel, setPanel] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("Arrivals");
+  const [tab, setTab] = useState<Tab>("Dashboard");
 
   async function load() {
-    const [o, d, f, r] = await Promise.all([
-      api.operator(), api.disbursements(), api.farmers(), api.rules(),
+    const [o, d, f, r, sh] = await Promise.all([
+      api.operator(), api.disbursements(), api.farmers(), api.rules(), api.shipments(),
     ]);
-    setOp(o); setDisbs(d); setFarmers(f); setRules(r);
+    setOp(o); setDisbs(d); setFarmers(f); setRules(r); setShips(sh);
   }
   useEffect(() => {
     load()
@@ -56,6 +57,19 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
   const locReqs = farmers.filter((f) => f.pendingLat != null && f.pendingLng != null);
   const todo = pending.length + locReqs.length;
 
+  // dashboard metrics
+  const geo = farmers.filter((f) => f.lat != null && f.lng != null).length;
+  const coverage = farmers.length ? Math.round((geo / farmers.length) * 100) : 0;
+  const payouts = [
+    ...disbs.filter((d) => d.status === "success").map((d) => ({
+      when: d.createdAt, label: `Lot ${d.lot}`, sub: `${d.payments.length} farmers · batch`, amount: d.totalAmount, explorer: d.explorer,
+    })),
+    ...ships.filter((s) => s.status === "paid").map((s) => ({
+      when: s.createdAt, label: s.farmerName, sub: `${s.variety ?? s.commodity} · ${s.verifiedKg}kg`, amount: s.amountPaid ?? 0, explorer: s.explorer,
+    })),
+  ].sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime());
+  const totalPaid = payouts.reduce((s, p) => s + (p.amount ?? 0), 0);
+
   return (
     <div className="op-shell">
       <div className="op-bar">
@@ -82,33 +96,64 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
 
         {tab === "Dashboard" && (
           <>
-            <div className="row">
-              <div className="card hero" style={{ flex: 2 }}>
-                <div>
-                  <div className="eyebrow">Payout pool</div>
-                  <div className="balance">{fmtUsdc(op.poolBalance)}<span>USDC</span></div>
-                  <div className="meta"><a className="link" href={op.poolExplorer} target="_blank" rel="noreferrer">view pool account on-chain ↗</a></div>
-                </div>
-                <div className="spacer" />
-                <FundBox busy={busy === "fund"} onFund={(amt) => run("fund", () => api.fundPool(amt), () => `Minted ${amt} USDC into the pool.`)} />
+            <div className="dash-head">
+              <div>
+                <h2 style={{ margin: 0 }}>Overview</h2>
+                <p className="sub" style={{ margin: "2px 0 0" }}>{op.name}</p>
               </div>
-              <div className="card stat"><div className="k">Farmers</div><div className="v">{op.counts.farmers}</div></div>
-              <div className="card stat"><div className="k">Disbursements</div><div className="v">{op.counts.disbursements}</div></div>
+              {todo > 0 && (
+                <button className="btn-ghost dash-attention" onClick={() => setTab("Approvals")}>
+                  {todo} pending approval{todo > 1 ? "s" : ""} →
+                </button>
+              )}
+            </div>
+
+            <div className="card hero dash-pool">
+              <div>
+                <div className="eyebrow">Payout pool</div>
+                <div className="balance">{fmtUsdc(op.poolBalance)}<span>USDC</span></div>
+                <div className="meta"><a className="link" href={op.poolExplorer} target="_blank" rel="noreferrer">view pool account on-chain ↗</a></div>
+              </div>
+              <div className="spacer" />
+              <FundBox busy={busy === "fund"} onFund={(amt) => run("fund", () => api.fundPool(amt), () => `Minted ${amt} USDC into the pool.`)} />
+            </div>
+
+            <div className="kpi-grid">
+              <div className="card stat">
+                <div className="k">Active farmers</div>
+                <div className="v">{active.length}</div>
+                <div className="kpi-sub">{pending.length} awaiting approval</div>
+              </div>
+              <div className="card stat">
+                <div className="k">Paid to farmers</div>
+                <div className="v">{fmtUsdc(totalPaid)}<span className="kpi-unit">USDC</span></div>
+                <div className="kpi-sub">{payouts.length} payout{payouts.length !== 1 ? "s" : ""} on-chain</div>
+              </div>
+              <div className="card stat">
+                <div className="k">Origin coverage</div>
+                <div className="v">{coverage}<span className="kpi-unit">%</span></div>
+                <div className="kpi-sub">{geo} of {farmers.length} farms geolocated · EUDR</div>
+              </div>
               <AnchorCard anchor={anchor} />
             </div>
+
             <div className="section">
-              <h2>Recent disbursements</h2>
+              <div className="dash-section-head">
+                <h2 style={{ flex: 1, margin: 0 }}>Recent payouts</h2>
+                {payouts.length > 6 && <span className="muted" style={{ fontSize: 13 }}>showing 6 of {payouts.length}</span>}
+              </div>
               <div className="card">
-                {disbs.length === 0 && <div className="pad muted">Nothing disbursed yet.</div>}
-                {disbs.slice(0, 4).map((d) => (
-                  <div className="disb" key={d.id}>
-                    <div className="head">
-                      <span className={`pill pill-${d.status}`}>{d.status}</span>
-                      <b>{d.lot}</b>
-                      <span className="muted" style={{ fontSize: 13 }}>{d.payments.length} farmers</span>
-                      <span className="amount">{fmtUsdc(d.totalAmount)} USDC</span>
+                {payouts.length === 0 && <div className="pad muted">No payments yet. Verify an arrival or a lot to pay farmers.</div>}
+                {payouts.slice(0, 6).map((p, i) => (
+                  <div className="payout-row" key={i}>
+                    <div className="payout-main">
+                      <div className="payout-label">{p.label}</div>
+                      <div className="payout-sub">{p.sub}</div>
                     </div>
-                    {d.explorer && <a className="link" href={d.explorer} target="_blank" rel="noreferrer">transaction on-chain ↗</a>}
+                    <div className="payout-amt">+{fmtUsdc(p.amount)} USDC</div>
+                    {p.explorer
+                      ? <a className="link payout-link" href={p.explorer} target="_blank" rel="noreferrer">on-chain ↗</a>
+                      : <span className="payout-link muted" style={{ fontSize: 12, textAlign: "right" }}>—</span>}
                   </div>
                 ))}
               </div>
@@ -267,7 +312,7 @@ function FundBox({ busy, onFund }: { busy: boolean; onFund: (n: number) => void 
 
 function AnchorCard({ anchor }: { anchor: any }) {
   return (
-    <div className="card stat" style={{ minWidth: 230 }}>
+    <div className="card stat">
       <div className="k">Anchor (cash-out)</div>
       {!anchor ? <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>checking…</div> : (
         <>

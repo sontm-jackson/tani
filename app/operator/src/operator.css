@@ -4,6 +4,26 @@
    map) and short ones (Rules) doesn't shift the centered layout sideways. */
 html { scrollbar-gutter: stable; }
 
+/* dashboard */
+.dash-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 18px; }
+.dash-head .sub { color: var(--muted); font-size: 13.5px; }
+.dash-attention { margin-left: auto; white-space: nowrap; }
+.dash-pool { margin-bottom: 16px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+.kpi-grid > .card { margin: 0; }
+.kpi-sub { color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.4; }
+.kpi-unit { font-size: 15px; color: var(--muted); font-weight: 600; margin-left: 4px; }
+.dash-section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+.payout-row { display: flex; align-items: center; gap: 14px; padding: 13px 20px; border-bottom: 1px solid var(--green-tint); }
+.payout-row:last-child { border-bottom: none; }
+.payout-main { flex: 1; min-width: 0; }
+.payout-label { font-weight: 600; font-size: 14px; }
+.payout-sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.payout-amt { font-weight: 700; font-size: 14.5px; color: var(--green-2); white-space: nowrap; }
+.payout-link { white-space: nowrap; min-width: 70px; text-align: right; }
+@media (max-width: 940px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 540px) { .kpi-grid { grid-template-columns: 1fr; } }
+
 .op-bar {
   position: sticky; top: 0; z-index: 20;
   background: var(--green); color: #fff;
