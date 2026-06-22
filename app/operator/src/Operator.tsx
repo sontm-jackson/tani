@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, fmtUsdc } from "@shared/api";
 import { Arrivals } from "./Arrivals";
 import { Trace } from "./Trace";
+import { FundPool } from "./FundPool";
 
 // Arrivals is the daily workspace (scan -> verify -> pay), so it leads and is the
 // default. The batch "Lots" path is hidden from the UI to keep one clear payment
@@ -115,7 +116,7 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
                 <div className="meta"><a className="link" href={op.poolExplorer} target="_blank" rel="noreferrer">view pool account on-chain ↗</a></div>
               </div>
               <div className="spacer" />
-              <FundBox busy={busy === "fund"} onFund={(amt) => run("fund", () => api.fundPool(amt), () => `Minted ${amt} USDC into the pool.`)} />
+              <button className="btn-primary" onClick={() => setPanel("fund")}>Fund pool</button>
             </div>
 
             <div className="kpi-grid">
@@ -158,6 +159,12 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
                 ))}
               </div>
             </div>
+
+            {panel === "fund" && (
+              <FundPool address={op.poolPublicKey} explorer={op.poolExplorer} busy={busy === "fund"}
+                onMint={(amt) => run("fund", () => api.fundPool(amt), () => `Minted ${fmtUsdc(amt)} USDC into the pool.`).then(() => setPanel(null))}
+                onClose={() => setPanel(null)} />
+            )}
           </>
         )}
 
@@ -296,16 +303,6 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function FundBox({ busy, onFund }: { busy: boolean; onFund: (n: number) => void }) {
-  const [amt, setAmt] = useState("2000");
-  return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-      <input style={{ width: 110 }} value={amt} onChange={(e) => setAmt(e.target.value)} type="number" />
-      <button className="btn-ghost" disabled={busy || !Number(amt)} onClick={() => onFund(Number(amt))}>{busy ? "Funding…" : "Fund pool"}</button>
     </div>
   );
 }

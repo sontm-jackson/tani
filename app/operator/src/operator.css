@@ -4,6 +4,15 @@
    map) and short ones (Rules) doesn't shift the centered layout sideways. */
 html { scrollbar-gutter: stable; }
 
+/* fund-pool modal */
+.fund-qr { display: flex; justify-content: center; padding: 16px; background: var(--green-tint); border-radius: 12px; margin-bottom: 14px; }
+.fund-qr img { border-radius: 8px; display: block; }
+.fund-qr-ph { width: 184px; height: 184px; background: #fff; border-radius: 8px; }
+.fund-addr { display: flex; align-items: center; gap: 8px; }
+.fund-addr code { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.5; word-break: break-all; background: var(--green-tint); padding: 9px 11px; border-radius: 8px; color: var(--ink); }
+.fund-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+.fund-divider::before, .fund-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
 /* dashboard */
 .dash-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 18px; }
 .dash-head .sub { color: var(--muted); font-size: 13.5px; }
