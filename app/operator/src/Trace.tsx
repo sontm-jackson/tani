@@ -89,12 +89,13 @@ export function Trace({ farmers, disbursements, shipments = [] }: { farmers: any
       if (c.lat != null && c.lng != null) positions.push([c.lat, c.lng]);
     }
   } else if (result?.kind === "farm" && result.f.lat != null) {
+    // a clicked farm just highlights its pin and fills the panel — no map move
     hotIds.add(result.f.id);
-    positions = [[result.f.lat, result.f.lng]];
   }
 
   const located = farmers.filter((f) => f.lat != null && f.lng != null);
-  const active = result != null;
+  // only a *searched* result dims the other pins; a clicked farm leaves the map as-is
+  const active = result != null && result.kind !== "farm";
 
   // live example chips: prefer a paid bag and a disbursed lot so a click shows proof
   const exShip = shipments.find((s) => s.status === "paid") ?? shipments[0];
