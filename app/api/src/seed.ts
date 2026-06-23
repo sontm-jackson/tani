@@ -8,19 +8,20 @@ import { prisma } from "./db.js";
 import { config } from "./config.js";
 import { encrypt, ensureEncryptionKey, hashPassword } from "./crypto.js";
 import { createKeypair, fundWithFriendbot, setTrustline, getAssetBalance, sleep } from "./stellar/account.js";
+import { anchorUsdc } from "./stellar/client.js";
 import { issueAsset } from "./stellar/payments.js";
 import { provisionWallet } from "./services/custody.js";
 import { newQrToken } from "./services/shipments.js";
 
 const FARMERS = [
-  { name: "Nguyễn Văn An", village: "Di Linh", phone: "+84901000001", coffee: 240, rice: 1200, lat: 11.575, lng: 108.068, household: "Family of 5", yearsFarming: 18, bio: "Third-generation coffee grower on a 1.2 ha plot." },
-  { name: "Trần Thị Bình", village: "Bảo Lộc", phone: "+84901000002", coffee: 180, rice: 0, lat: 11.548, lng: 107.812, household: "Family of 4", yearsFarming: 12, bio: "Switched to washed Arabica for the export premium." },
-  { name: "Lê Văn Cường", village: "Cầu Đất", phone: "+84901000003", coffee: 320, rice: 2400, lat: 11.805, lng: 108.552, household: "Family of 6", yearsFarming: 22, bio: "Grows Robusta and rice; co-op member since 2015." },
-  { name: "Phạm Thị Dung", village: "Đức Trọng", phone: "+84901000004", coffee: 150, rice: 1800, lat: 11.752, lng: 108.402, household: "Family of 3", yearsFarming: 9, bio: "Young farmer focused on organic certification." },
-  { name: "Hoàng Văn Em", village: "Lạc Dương", phone: "+84901000005", coffee: 200, rice: 0, lat: 12.048, lng: 108.435, household: "Family of 5", yearsFarming: 15, bio: "High-altitude specialty coffee near Lạc Dương." },
-  { name: "Vũ Thị Hoa", village: "Di Linh", phone: "+84901000006", coffee: 90, rice: 900, lat: 11.582, lng: 108.079, pendingLat: 11.589, pendingLng: 108.072, household: "Family of 4", yearsFarming: 7, bio: "Small plot, sells to the co-op each harvest." },
-  { name: "Đặng Văn Giang", village: "Cầu Đất", phone: "+84901000007", coffee: 275, rice: 0, lat: 11.813, lng: 108.560, household: "Family of 7", yearsFarming: 25, bio: "Honey-processed beans, Fairtrade certified." },
-  { name: "Bùi Thị Hạnh", village: "Bảo Lộc", phone: "+84901000008", coffee: 130, rice: 1500, lat: 11.556, lng: 107.821, household: "Family of 4", yearsFarming: 11, bio: "Coffee and rice on a family plot in Bảo Lộc." },
+  { name: "Nguyễn Văn An", village: "Di Linh", phone: "+84901000001", coffee: 240, rice: 1200, lat: 11.575, lng: 108.068, farmSizeHa: 1.2, yearsFarming: 18, bio: "Third-generation coffee grower on a 1.2 ha plot." },
+  { name: "Trần Thị Bình", village: "Bảo Lộc", phone: "+84901000002", coffee: 180, rice: 0, lat: 11.548, lng: 107.812, farmSizeHa: 0.8, yearsFarming: 12, bio: "Switched to washed Arabica for the export premium." },
+  { name: "Lê Văn Cường", village: "Cầu Đất", phone: "+84901000003", coffee: 320, rice: 2400, lat: 11.805, lng: 108.552, farmSizeHa: 2.5, yearsFarming: 22, bio: "Grows Robusta and rice; co-op member since 2015." },
+  { name: "Phạm Thị Dung", village: "Đức Trọng", phone: "+84901000004", coffee: 150, rice: 1800, lat: 11.752, lng: 108.402, farmSizeHa: 0.6, yearsFarming: 9, bio: "Young farmer focused on organic certification." },
+  { name: "Hoàng Văn Em", village: "Lạc Dương", phone: "+84901000005", coffee: 200, rice: 0, lat: 12.048, lng: 108.435, farmSizeHa: 1.5, yearsFarming: 15, bio: "High-altitude specialty coffee near Lạc Dương." },
+  { name: "Vũ Thị Hoa", village: "Di Linh", phone: "+84901000006", coffee: 90, rice: 900, lat: 11.582, lng: 108.079, pendingLat: 11.589, pendingLng: 108.072, farmSizeHa: 0.4, yearsFarming: 7, bio: "Small plot, sells to the co-op each harvest." },
+  { name: "Đặng Văn Giang", village: "Cầu Đất", phone: "+84901000007", coffee: 275, rice: 0, lat: 11.813, lng: 108.560, farmSizeHa: 2.0, yearsFarming: 25, bio: "Honey-processed beans, Fairtrade certified." },
+  { name: "Bùi Thị Hạnh", village: "Bảo Lộc", phone: "+84901000008", coffee: 130, rice: 1500, lat: 11.556, lng: 107.821, farmSizeHa: 0.9, yearsFarming: 11, bio: "Coffee and rice on a family plot in Bảo Lộc." },
 ];
 
 function updateEnv(updates: Record<string, string>) {
@@ -80,6 +81,18 @@ async function main() {
     },
   });
 
+  // 2b. Anchor cash-out treasury — holds the anchor's OWN USDC. At cash-out the farmer's
+  // internal USDC returns to the pool and this treasury hands them anchor USDC 1:1 to
+  // withdraw via SEP-24. Funded once with testnet USDC from the anchor (see note below).
+  console.log("2b. Creating anchor cash-out treasury...");
+  const treasury = createKeypair();
+  await fundWithFriendbot(treasury.publicKey);
+  await sleep(300);
+  await setTrustline(treasury.secret, anchorUsdc());
+  config.treasurySecret = treasury.secret;
+  config.treasuryPublic = treasury.publicKey;
+  updateEnv({ TREASURY_SECRET: treasury.secret, TREASURY_PUBLIC: treasury.publicKey });
+
   // 3. Farmers (custodial wallets)
   console.log(`3. Provisioning ${FARMERS.length} farmer wallets...`);
   const byPhone: Record<string, string> = {};
@@ -97,9 +110,9 @@ async function main() {
         pendingLat: (f as any).pendingLat ?? null,
         pendingLng: (f as any).pendingLng ?? null,
         bio: f.bio,
-        household: f.household,
+        farmSizeHa: f.farmSizeHa,
         yearsFarming: f.yearsFarming,
-        wallet: { create: { publicKey: kp.publicKey, secret: encrypt(kp.secret), trustline: true } },
+        wallet: { create: { publicKey: kp.publicKey, secret: encrypt(kp.secret), trustline: true, anchorTrustline: kp.anchorTrustline } },
       },
     });
     byPhone[f.phone] = farmer.id;
@@ -118,7 +131,7 @@ async function main() {
         phone: "+84905555000",
         village: "Bảo Lộc",
         status: "pending",
-        wallet: { create: { publicKey: kp.publicKey, secret: encrypt(kp.secret), trustline: true } },
+        wallet: { create: { publicKey: kp.publicKey, secret: encrypt(kp.secret), trustline: true, anchorTrustline: kp.anchorTrustline } },
       },
     });
   }
@@ -169,7 +182,7 @@ async function main() {
     });
   }
 
-  const poolBal = await getAssetBalance(pool.publicKey, config.assetCode);
+  const poolBal = await getAssetBalance(pool.publicKey, config.assetCode, config.assetIssuer);
   const coffeeKg = FARMERS.reduce((s, f) => s + f.coffee, 0);
   const riceKg = FARMERS.reduce((s, f) => s + f.rice, 0);
   console.log("\nSeed complete.");
@@ -179,6 +192,10 @@ async function main() {
   console.log(`  Farmers  : ${FARMERS.length} active + 1 pending (secrets encrypted at rest)`);
   console.log(`  Coffee   : LOT-2026-001 · ${coffeeKg}kg · pays ${coffeeKg * 0.5} USDC`);
   console.log(`  Rice     : LOT-RICE-001 · ${riceKg}kg · pays ${(riceKg * 0.08).toFixed(2)} USDC`);
+  console.log(`  Treasury : ${treasury.publicKey}`);
+  console.log("\nAnchor off-ramp (SEP-24 cash-out): fund the treasury with testnet USDC once,");
+  console.log("  so it can hand farmers anchor USDC to withdraw. The anchor caps deposits at 10/tx:");
+  console.log("  open https://testanchor.stellar.org, SEP-24 deposit USDC to the treasury address above.");
   console.log("\nStart the API (npm run dev), then verify a lot from the dashboard.");
   await prisma.$disconnect();
 }

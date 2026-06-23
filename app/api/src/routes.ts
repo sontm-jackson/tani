@@ -6,7 +6,7 @@ import { usdc } from "./stellar/client.js";
 import { getAssetBalance } from "./stellar/account.js";
 import { issueAsset } from "./stellar/payments.js";
 import { processEvent } from "./services/disburse.js";
-import { cashOut } from "./services/anchor.js";
+import { initiateCashOut } from "./services/anchorWithdraw.js";
 import { anchorInfo } from "./services/anchorInfo.js";
 import { newQrToken, verifyAndPay } from "./services/shipments.js";
 import { requestOtp, verifyOtp, consumeOtp, farmerIdFromToken, issueSessionForPhone, operatorLogin, operatorIdFromToken } from "./services/auth.js";
@@ -26,7 +26,7 @@ const wrap = (fn: (req: any, res: any) => Promise<any>) => (req: any, res: any) 
 const profileSchema = z.object({
   village: z.string().optional(),
   bio: z.string().optional(),
-  household: z.string().optional(),
+  farmSizeHa: z.number().nonnegative().optional(),
   yearsFarming: z.number().int().nonnegative().optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),
@@ -112,8 +112,15 @@ router.get("/me", requireFarmer, wrap(async (req: any, res) => res.json(await fa
 
 router.post("/me/cashout", requireFarmer, wrap(async (req: any, res) => {
   const { amount } = z.object({ amount: z.number().positive() }).parse(req.body);
-  const result = await cashOut(req.farmerId, amount);
-  res.json({ ...result, explorer: result.txHash ? explorerTx(result.txHash) : null });
+  const cash = await initiateCashOut(req.farmerId, amount);
+  res.json(cashOutView(cash));
+}));
+
+// Poll a cash-out's progress while the anchor's interactive withdraw completes.
+router.get("/me/cashout/:id", requireFarmer, wrap(async (req: any, res) => {
+  const cash = await prisma.cashOut.findFirst({ where: { id: req.params.id, farmerId: req.farmerId } });
+  if (!cash) return res.status(404).json({ error: "not found" });
+  res.json(cashOutView(cash));
 }));
 
 router.post("/me/payout-method", requireFarmer, wrap(async (req: any, res) => {
@@ -176,7 +183,7 @@ router.get("/operator", requireOperator, wrap(async (_req, res) => {
   const op = await prisma.operator.findFirst();
   if (!op) return res.status(404).json({ error: "no operator — run `npm run seed`" });
   const [poolUsdc, farmers, lots, disbursements] = await Promise.all([
-    getAssetBalance(op.poolPublicKey, config.assetCode),
+    getAssetBalance(op.poolPublicKey, config.assetCode, config.assetIssuer),
     prisma.farmer.count({ where: { operatorId: op.id } }),
     prisma.lot.count({ where: { operatorId: op.id } }),
     prisma.disbursement.count({ where: { operatorId: op.id } }),
@@ -222,11 +229,11 @@ router.get("/farmers", requireOperator, wrap(async (_req, res) => {
       pendingLng: f.pendingLng,
       locationApprovedAt: f.locationApprovedAt,
       bio: f.bio,
-      household: f.household,
+      farmSizeHa: f.farmSizeHa,
       yearsFarming: f.yearsFarming,
       photoUrl: f.photoUrl,
       publicKey: f.wallet?.publicKey,
-      balance: f.wallet ? await getAssetBalance(f.wallet.publicKey, config.assetCode) : 0,
+      balance: f.wallet ? await getAssetBalance(f.wallet.publicKey, config.assetCode, config.assetIssuer) : 0,
       totalReceived: f.payments.reduce((s, p) => s + p.amount, 0),
     }))
   );
@@ -295,8 +302,8 @@ router.post("/farmers", requireOperator, wrap(async (req, res) => {
 
 router.post("/farmers/:id/cashout", wrap(async (req, res) => {
   const { amount } = z.object({ amount: z.number().positive() }).parse(req.body);
-  const result = await cashOut(req.params.id, amount);
-  res.json({ ...result, explorer: result.txHash ? explorerTx(result.txHash) : null });
+  const cash = await initiateCashOut(req.params.id, amount);
+  res.json(cashOutView(cash));
 }));
 
 // Farmer sets/updates the payout destination an anchor would send local currency to.
@@ -544,7 +551,7 @@ async function farmerDetail(id: string) {
     },
   });
   if (!f) throw new Error("farmer not found");
-  const balance = f.wallet ? await getAssetBalance(f.wallet.publicKey, config.assetCode) : 0;
+  const balance = f.wallet ? await getAssetBalance(f.wallet.publicKey, config.assetCode, config.assetIssuer) : 0;
   const lotPayments = f.payments.map((p) => ({
     id: p.id,
     amount: p.amount,
@@ -573,7 +580,7 @@ async function farmerDetail(id: string) {
     pendingLng: f.pendingLng,
     locationApprovedAt: f.locationApprovedAt,
     bio: f.bio,
-    household: f.household,
+    farmSizeHa: f.farmSizeHa,
     yearsFarming: f.yearsFarming,
     photoUrl: f.photoUrl,
     publicKey: f.wallet?.publicKey,
@@ -584,15 +591,23 @@ async function farmerDetail(id: string) {
       ? { type: f.payoutType, provider: f.payoutProvider, account: f.payoutAccount, name: f.payoutName }
       : null,
     payments,
-    cashOuts: f.cashOuts.map((c) => ({
-      id: c.id,
-      amountUsdc: c.amountUsdc,
-      amountLocal: c.amountLocal,
-      currency: c.currency,
-      destMasked: c.destMasked,
-      status: c.status,
-      txHash: c.txHash,
-      createdAt: c.createdAt,
-    })),
+    cashOuts: f.cashOuts.map(cashOutView),
+  };
+}
+
+// Shared shape for a cash-out, used by the activity feed and the status poller.
+function cashOutView(c: any) {
+  return {
+    id: c.id,
+    amountUsdc: c.amountUsdc,
+    amountLocal: c.amountLocal,
+    currency: c.currency,
+    destMasked: c.destMasked,
+    status: c.status,
+    txHash: c.txHash,
+    interactiveUrl: c.interactiveUrl,
+    error: c.error,
+    explorer: c.txHash ? explorerTx(c.txHash) : null,
+    createdAt: c.createdAt,
   };
 }

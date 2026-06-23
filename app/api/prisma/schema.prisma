@@ -44,7 +44,7 @@ model Farmer {
   pendingLng    Float?
   locationApprovedAt DateTime? // when the co-op last approved the location
   bio           String? // short story
-  household     String? // e.g. "Family of 5"
+  farmSizeHa    Float? // plot area in hectares (EUDR: <4ha = point, >4ha = polygon)
   yearsFarming  Int?
   photoUrl      String?
   // payout destination an anchor would send local currency to (set by the farmer)
@@ -99,7 +99,8 @@ model Wallet {
   farmer    Farmer   @relation(fields: [farmerId], references: [id])
   publicKey String
   secret    String // testnet only
-  trustline Boolean  @default(false) // USDC trustline established?
+  trustline Boolean  @default(false) // internal USDC trustline established?
+  anchorTrustline Boolean @default(false) // anchor-USDC trustline (for SEP-24 cash-out)
   createdAt DateTime @default(now())
 }
 
@@ -195,7 +196,13 @@ model OtpCode {
   @@index([phone])
 }
 
-// A farmer cashing out USDC to local currency via the anchor (simulated on testnet).
+// A farmer cashing out USDC to local currency through a real Stellar anchor (SEP-24).
+// The off-ramp is interactive, so this record is driven through several states:
+//   interactive  -> anchor webview open, waiting for the farmer to finish KYC
+//   anchor_ready -> anchor returned its receiving account; funds being sent
+//   sent         -> farmer's anchor USDC sent on-chain to the anchor
+//   success      -> anchor confirmed completion (fiat paid out)
+//   failed       -> any step failed
 model CashOut {
   id          String   @id @default(cuid())
   farmerId    String
@@ -207,7 +214,12 @@ model CashOut {
   destType     String? // "bank" | "momo"
   destProvider String?
   destMasked   String? // masked account, e.g. "MoMo ••••6789"
-  txHash      String?
-  status      String   @default("pending") // pending | success | failed
+  txHash      String? // on-chain hash of the farmer -> anchor transfer
+  status      String   @default("interactive") // interactive | anchor_ready | sent | success | failed
+  // SEP-24 plumbing
+  anchorTxId     String? // the anchor's transaction id
+  interactiveUrl String? // anchor-hosted URL the farmer completes
+  sep10Token     String? // session JWT used to poll the anchor (testnet only)
+  error          String? // failure reason, surfaced to the farmer
   createdAt   DateTime @default(now())
 }

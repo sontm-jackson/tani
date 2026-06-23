@@ -70,11 +70,16 @@ export async function getBalances(
   }));
 }
 
-export async function getAssetBalance(publicKey: string, code: string): Promise<number> {
+// Balance of an asset. When a wallet trusts two assets with the same code but
+// different issuers (e.g. our internal USDC and the anchor's USDC), pass `issuer`
+// to read the right one — otherwise the first code match wins.
+export async function getAssetBalance(publicKey: string, code: string, issuer?: string): Promise<number> {
   try {
     const account = await horizon.loadAccount(publicKey);
-    const found = account.balances.find(
-      (b: any) => (code === "XLM" ? b.asset_type === "native" : b.asset_code === code)
+    const found = account.balances.find((b: any) =>
+      code === "XLM"
+        ? b.asset_type === "native"
+        : b.asset_code === code && (!issuer || b.asset_issuer === issuer)
     );
     return found ? Number(found.balance) : 0;
   } catch {

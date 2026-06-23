@@ -9,6 +9,16 @@ export const config = {
   assetIssuer: process.env.ASSET_ISSUER ?? "",
   issuerSecret: process.env.ISSUER_SECRET ?? "",
   anchorHomeDomain: process.env.ANCHOR_HOME_DOMAIN ?? "testanchor.stellar.org",
+  // The anchor settles its OWN asset only. testanchor's USDC is issued here; our
+  // internal economy uses a different (self-minted) issuer, so cash-out swaps the
+  // farmer's internal USDC for this anchor USDC 1:1 before the SEP-24 withdraw.
+  anchorUsdcIssuer:
+    process.env.ANCHOR_USDC_ISSUER ?? "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  // Reserve account that holds anchor USDC and funds the swap leg. Set by seed.
+  treasurySecret: process.env.TREASURY_SECRET ?? "",
+  treasuryPublic: process.env.TREASURY_PUBLIC ?? "",
+  // testanchor caps deposit/withdraw at 10 units per transaction.
+  anchorMaxPerTx: Number(process.env.ANCHOR_MAX_PER_TX ?? 10),
   port: Number(process.env.PORT ?? 4000),
 
   // Auth

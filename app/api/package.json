@@ -8,9 +8,13 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "smoke": "tsx src/stellar/smoke.ts",
+    "anchor:smoke": "tsx src/stellar/anchorSmoke.ts",
     "db:push": "prisma db push",
     "db:reset": "prisma db push --force-reset",
     "seed": "tsx src/seed.ts",
+    "clean": "tsx src/clean.ts",
+    "add:farmers": "tsx src/addFarmers.ts",
+    "fund:treasury": "tsx src/fundTreasury.ts",
     "studio": "prisma studio"
   },
   "dependencies": {

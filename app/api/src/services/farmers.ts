@@ -30,7 +30,14 @@ export async function provisionFarmer(
       phone: data.phone,
       village: data.village,
       status,
-      wallet: { create: { publicKey: kp.publicKey, secret: encrypt(kp.secret), trustline: true } },
+      wallet: {
+        create: {
+          publicKey: kp.publicKey,
+          secret: encrypt(kp.secret),
+          trustline: true,
+          anchorTrustline: kp.anchorTrustline,
+        },
+      },
     },
   });
 }

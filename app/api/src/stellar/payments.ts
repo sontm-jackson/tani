@@ -77,3 +77,29 @@ export async function payOne(
 ): Promise<string> {
   return batchPay(sourceSecret, asset, [{ destination, amount }], memo);
 }
+
+// Payment carrying a typed memo. SEP-24 tells us where to send the withdrawal and
+// which memo to attach (text | id | hash); the anchor matches the deposit by it.
+export async function payWithMemo(
+  sourceSecret: string,
+  destination: string,
+  asset: Asset,
+  amount: number,
+  memoType: string,
+  memoValue: string
+): Promise<string> {
+  const source = Keypair.fromSecret(sourceSecret);
+  const account = await horizon.loadAccount(source.publicKey());
+  let memo: Memo;
+  if (memoType === "hash") memo = Memo.hash(Buffer.from(memoValue, "base64"));
+  else if (memoType === "id") memo = Memo.id(memoValue);
+  else memo = Memo.text(memoValue);
+  const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase })
+    .addOperation(Operation.payment({ destination, asset, amount: fmt(amount) }))
+    .addMemo(memo)
+    .setTimeout(120)
+    .build();
+  tx.sign(source);
+  const res = await horizon.submitTransaction(tx);
+  return res.hash;
+}
