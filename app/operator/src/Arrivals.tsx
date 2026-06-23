@@ -8,15 +8,19 @@ const FIELDS = [
   { key: "processing", label: "Processing" },
   { key: "moisture", label: "Moisture", suffix: "%" },
   { key: "certification", label: "Certification" },
-  { key: "harvestDate", label: "Harvest date" },
+  { key: "harvestDate", label: "Harvest" },
 ];
 
-export function Arrivals({ onChanged, onNotice }: { onChanged: () => void; onNotice: (m: string) => void }) {
+export function Arrivals({ rules, onChanged, onNotice }: { rules: any[]; onChanged: () => void; onNotice: (m: string) => void }) {
   const [ships, setShips] = useState<any[]>([]);
   const [sel, setSel] = useState<any>(null);
   const [code, setCode] = useState("");
   const [cam, setCam] = useState(false);
   const [err, setErr] = useState("");
+
+  function rateFor(commodity: string) {
+    return rules.find((r) => r.commodity === commodity && r.active !== false)?.ratePerKg ?? 0.5;
+  }
 
   async function load() {
     setShips(await api.shipments("declared"));
@@ -29,8 +33,8 @@ export function Arrivals({ onChanged, onNotice }: { onChanged: () => void; onNot
     setErr("");
     try {
       const s = await api.shipmentByToken(token.trim());
-      if (s.status !== "declared") setErr(`Shipment already ${s.status}.`);
-      else setSel(s);
+      if (s.status !== "declared") setErr(`This delivery is already ${s.status}.`);
+      else { setSel(s); setCam(false); setCode(""); }
     } catch (e: any) {
       setErr(e.message);
     }
@@ -38,40 +42,52 @@ export function Arrivals({ onChanged, onNotice }: { onChanged: () => void; onNot
 
   return (
     <div className="section">
-      <h2>Arrivals — scan to verify &amp; pay</h2>
+      <h2>Arrivals — scan &amp; pay</h2>
       <p className="sub" style={{ marginTop: -6 }}>
-        Farmers declared these shipments and shipped them with a QR. Scan on arrival, check the
-        package against the declaration, then pay on the verified weight.
+        Farmers declare deliveries in the app. Scan the QR on the farmer's phone, weigh the goods, and pay on the spot.
       </p>
 
-      <div className="card pad" style={{ marginBottom: 14 }}>
-        <div className="row" style={{ gap: 10 }}>
-          <input placeholder="Scan or paste QR code (e.g. TANI-…)" value={code}
-            onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && open(code)} style={{ flex: 2 }} />
-          <button className="btn-green" style={{ minWidth: 120 }} disabled={!code} onClick={() => open(code)}>Look up</button>
-          <button className="btn-ghost" onClick={() => setCam((v) => !v)}>{cam ? "Close camera" : "Scan with camera"}</button>
-        </div>
-        {cam && <CameraScan onScan={(t) => { setCam(false); setCode(t); open(t); }} />}
+      <div className="card pad arr-scan">
+        {cam ? (
+          <>
+            <CameraScan onScan={(t) => open(t)} />
+            <button className="btn-ghost block" style={{ marginTop: 12 }} onClick={() => setCam(false)}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <button className="btn-green arr-scan-btn" onClick={() => { setErr(""); setCam(true); }}>
+              <ScanIcon /> Scan farmer's QR
+            </button>
+            <div className="arr-paste">
+              <input placeholder="or paste a code (TANI-…)" value={code}
+                onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && open(code)} />
+              <button className="btn-ghost" disabled={!code} onClick={() => open(code)}>Look up</button>
+            </div>
+          </>
+        )}
         {err && <div className="notice notice-err">{err}</div>}
       </div>
 
+      <div className="arr-expected-head">
+        <h3>Expected today</h3>
+        <span className="arr-count">{ships.length}</span>
+      </div>
       <div className="card">
-        {ships.length === 0 && <div className="pad muted">No shipments awaiting arrival.</div>}
+        {ships.length === 0 && <div className="pad muted">No deliveries awaiting arrival.</div>}
         {ships.map((s) => (
-          <div className="lot" key={s.id} style={{ borderBottom: "1px solid var(--green-tint)" }}>
-            <div>
-              <div className="code">{s.farmerName} <span className="mono muted" style={{ fontSize: 12.5, marginLeft: 6 }}>{s.qrToken}</span></div>
-              <div className="detail">{s.variety} · {s.claimedKg}kg claimed · {s.certification}</div>
+          <button className="arr-row" key={s.id} onClick={() => setSel(s)}>
+            <div className="arr-row-main">
+              <div className="arr-row-name">{s.farmerName}</div>
+              <div className="arr-row-detail">{s.variety} · {s.claimedKg}kg · {s.certification}</div>
             </div>
-            <div className="spacer" />
-            <span className="pill pill-pending">in transit</span>
-            <button className="btn-primary" onClick={() => setSel(s)}>Scan / verify</button>
-          </div>
+            <span className="pill pill-pending">declared</span>
+            <span className="arr-chev">›</span>
+          </button>
         ))}
       </div>
 
       {sel && (
-        <VerifyPanel shipment={sel} onClose={() => setSel(null)}
+        <VerifyPanel shipment={sel} rate={rateFor(sel.commodity ?? "coffee")} onClose={() => setSel(null)}
           onDone={async (msg: string) => { setSel(null); await load(); onChanged(); onNotice(msg); }} />
       )}
     </div>
@@ -80,19 +96,24 @@ export function Arrivals({ onChanged, onNotice }: { onChanged: () => void; onNot
 
 function CameraScan({ onScan }: { onScan: (t: string) => void }) {
   useEffect(() => {
-    const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 220 }, false);
+    const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 240 }, false);
     scanner.render((text) => { scanner.clear().catch(() => {}); onScan(text); }, () => {});
     return () => { scanner.clear().catch(() => {}); };
   }, []);
-  return <div id="qr-reader" style={{ marginTop: 12, maxWidth: 360 }} />;
+  return <div id="qr-reader" />;
 }
 
-function VerifyPanel({ shipment, onClose, onDone }: any) {
+function VerifyPanel({ shipment, rate, onClose, onDone }: any) {
   const [verifiedKg, setKg] = useState(String(shipment.claimedKg));
   const [flags, setFlags] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
+  const [showFlags, setShowFlags] = useState(false);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
+
+  const kg = Number(verifiedKg) || 0;
+  const amount = Math.round(kg * rate * 1e7) / 1e7;
+  const weightChanged = Number(verifiedKg) !== shipment.claimedKg;
 
   function toggle(k: string) {
     const n = new Set(flags);
@@ -105,71 +126,73 @@ function VerifyPanel({ shipment, onClose, onDone }: any) {
     setErr("");
     try {
       const discrepancies = [...flags];
-      const kg = Number(verifiedKg);
       if (accept && kg !== shipment.claimedKg) discrepancies.push(`weight ${shipment.claimedKg}→${kg}kg`);
       const r = await api.verifyShipment(shipment.id, { verifiedKg: kg, discrepancies, note, accept });
-      onDone(accept ? `Verified & paid ${fmtUsdc(r.amountPaid)} USDC to ${shipment.farmerName}.` : `Shipment from ${shipment.farmerName} rejected.`);
+      onDone(accept ? `Verified & paid ${fmtUsdc(r.amountPaid)} USDC to ${shipment.farmerName}.` : `Delivery from ${shipment.farmerName} rejected.`);
     } catch (e: any) {
       setErr(e.message);
       setBusy("");
     }
   }
 
-  const weightChanged = Number(verifiedKg) !== shipment.claimedKg;
-
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="eyebrow">Verify arrival</div>
         <h2 style={{ margin: "2px 0 2px" }}>{shipment.farmerName}</h2>
-        <p className="sub" style={{ marginBottom: 16 }}>{shipment.village} · {shipment.qrToken}</p>
+        <p className="sub" style={{ marginBottom: 18 }}>{shipment.village} · <span className="mono">{shipment.qrToken}</span></p>
 
-        <div className="muted" style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
-          Check the package against the declaration — flag anything that doesn't match.
+        {/* weight is the number that matters — lead with it, show the payout live */}
+        <div className="vp-weight">
+          <label>Weight on the scale</label>
+          <div className="vp-weight-row">
+            <input type="number" inputMode="decimal" value={verifiedKg} onChange={(e) => setKg(e.target.value)} />
+            <span className="vp-unit">kg</span>
+            <span className="vp-claim">declared {shipment.claimedKg}</span>
+          </div>
+          <div className="vp-pay-preview">Pay <b>{fmtUsdc(amount)} USDC</b>{weightChanged ? ` on ${kg}kg verified` : ""}</div>
         </div>
 
-        {/* weight, editable */}
-        <div className="verify-row">
-          <div>
-            <div className="vf-label">Weight</div>
-            <div className="vf-claim">declared {shipment.claimedKg}kg</div>
+        {/* declared quality — everything's fine by default, tap only to flag a problem */}
+        <div className="vp-declared">
+          <div className="vp-declared-head">
+            <span>Declared quality</span>
+            <button className="link" onClick={() => setShowFlags((v) => !v)}>{showFlags ? "done" : "flag a problem"}</button>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input type="number" value={verifiedKg} onChange={(e) => setKg(e.target.value)} style={{ width: 100 }} />
-            <span className="muted">kg verified</span>
+          <div className="vp-chips">
+            {FIELDS.map((f) => shipment[f.key] != null && (
+              showFlags ? (
+                <button key={f.key} className={flags.has(f.key) ? "vp-chip flagged" : "vp-chip"} onClick={() => toggle(f.key)}>
+                  {String(shipment[f.key])}{f.suffix ?? ""}{flags.has(f.key) ? " ✕" : ""}
+                </button>
+              ) : (
+                <span key={f.key} className="vp-chip">{String(shipment[f.key])}{f.suffix ?? ""}</span>
+              )
+            ))}
           </div>
-        </div>
-        {weightChanged && <div className="vf-adjust">adjusted from {shipment.claimedKg}kg — paid on {verifiedKg}kg</div>}
-
-        {/* other declared fields, flag if mismatch */}
-        {FIELDS.map((f) => shipment[f.key] != null && (
-          <div className="verify-row" key={f.key}>
-            <div>
-              <div className="vf-label">{f.label}</div>
-              <div className="vf-claim">{String(shipment[f.key])}{f.suffix ?? ""}</div>
-            </div>
-            <button className={flags.has(f.key) ? "btn-flag on" : "btn-flag"} onClick={() => toggle(f.key)}>
-              {flags.has(f.key) ? "✕ mismatch" : "✓ matches"}
-            </button>
-          </div>
-        ))}
-
-        <div className="field" style={{ marginTop: 14 }}>
-          <label>Note (optional)</label>
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. moisture slightly high, accepted" />
+          {flags.size > 0 && (
+            <input className="vp-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (e.g. moisture high, accepted on adjusted weight)" />
+          )}
         </div>
 
         {err && <div className="notice notice-err">{err}</div>}
 
-        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          <button className="btn-primary" style={{ flex: 2 }} disabled={!!busy} onClick={() => submit(true)}>
-            {busy === "pay" ? "Paying…" : `Verify & pay (on ${verifiedKg}kg)`}
+        <div className="vp-actions">
+          <button className="btn-primary" disabled={!!busy || !kg} onClick={() => submit(true)}>
+            {busy === "pay" ? "Paying…" : `Verify & pay ${fmtUsdc(amount)} USDC`}
           </button>
-          <button className="btn-ghost" style={{ flex: 1 }} disabled={!!busy} onClick={() => submit(false)}>
-            {busy === "reject" ? "…" : "Reject"}
-          </button>
+          <button className="btn-ghost" disabled={!!busy} onClick={() => submit(false)}>{busy === "reject" ? "…" : "Reject"}</button>
         </div>
       </div>
     </div>
+  );
+}
+
+function ScanIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "-4px", marginRight: 8 }}>
+      <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+    </svg>
   );
 }

@@ -168,7 +168,7 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
           </>
         )}
 
-        {tab === "Arrivals" && <Arrivals onChanged={load} onNotice={(m) => setNotice({ ok: true, msg: m })} />}
+        {tab === "Arrivals" && <Arrivals rules={rules} onChanged={load} onNotice={(m) => setNotice({ ok: true, msg: m })} />}
 
         {tab === "Approvals" && (
           <>

@@ -191,6 +191,22 @@ function TraceEmpty() {
 function FarmTrace({ f }: { f: any }) {
   const located = f.lat != null && f.lng != null;
   const explorer = f.publicKey ? `https://stellar.expert/explorer/testnet/account/${f.publicKey}` : null;
+
+  // Reverse-geocode the pin to a readable place name (the precise point is kept below
+  // as the EUDR trace point). Falls back to coordinates if the lookup is unavailable.
+  const [place, setPlace] = useState<string | null>(null);
+  useEffect(() => {
+    setPlace(null);
+    if (!located) return;
+    let cancelled = false;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${f.lat}&lon=${f.lng}&zoom=12&accept-language=vi`;
+    fetch(url, { headers: { Accept: "application/json" } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d?.display_name) setPlace(d.display_name.split(",").slice(0, 3).join(",").trim()); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [f.lat, f.lng, located]);
+
   return (
     <div className="card trace-card">
       <div className="trace-card-head">
@@ -204,8 +220,9 @@ function FarmTrace({ f }: { f: any }) {
       <div className="trace-card-body">
         {f.bio && <p className="trace-bio">{f.bio}</p>}
         <div className="trace-rows">
-          {f.household && <div className="trace-row"><span>Household</span><b>{f.household}</b></div>}
-          {located && <div className="trace-row"><span>Location</span><b>{f.lat.toFixed(4)}, {f.lng.toFixed(4)}</b></div>}
+          {f.farmSizeHa != null && <div className="trace-row"><span>Farm size</span><b>{f.farmSizeHa} ha</b></div>}
+          {located && <div className="trace-row"><span>Location</span><b>{place ?? `${f.lat.toFixed(4)}, ${f.lng.toFixed(4)}`}</b></div>}
+          {located && <div className="trace-row"><span>EUDR point</span><b>{f.lat.toFixed(5)}, {f.lng.toFixed(5)}</b></div>}
           <div className="trace-row"><span>Wallet balance</span><b>{fmtUsdc(f.balance)} USDC</b></div>
         </div>
         <div className="trace-paid">
