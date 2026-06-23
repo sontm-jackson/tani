@@ -71,7 +71,7 @@ export function FarmProfile({ farmer, onSaved }: { farmer: any; onSaved: (f: any
   const [lat, setLat] = useState<number | null>(farmer.pendingLat ?? farmer.lat ?? null);
   const [lng, setLng] = useState<number | null>(farmer.pendingLng ?? farmer.lng ?? null);
   const [bio, setBio] = useState(farmer.bio ?? "");
-  const [household, setHousehold] = useState(farmer.household ?? "");
+  const [farmSize, setFarmSize] = useState(farmer.farmSizeHa != null ? String(farmer.farmSizeHa) : "");
   const [years, setYears] = useState(farmer.yearsFarming != null ? String(farmer.yearsFarming) : "");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -83,7 +83,8 @@ export function FarmProfile({ farmer, onSaved }: { farmer: any; onSaved: (f: any
     setBusy(true); setNotice(null);
     try {
       const f = await api.meProfile({
-        bio, household,
+        bio,
+        farmSizeHa: farmSize ? Number(farmSize) : undefined,
         yearsFarming: years ? Number(years) : undefined,
         lat: lat ?? undefined, lng: lng ?? undefined,
       });
@@ -121,8 +122,8 @@ export function FarmProfile({ farmer, onSaved }: { farmer: any; onSaved: (f: any
       <div className="field"><label>Your story</label>
         <input value={bio} onChange={(e) => setBio(e.target.value)} placeholder="e.g. Third-generation coffee grower" /></div>
       <div className="row" style={{ gap: 10 }}>
-        <div className="field"><label>Household</label>
-          <input value={household} onChange={(e) => setHousehold(e.target.value)} placeholder="Family of 5" /></div>
+        <div className="field"><label>Farm size (ha)</label>
+          <input type="number" inputMode="decimal" value={farmSize} onChange={(e) => setFarmSize(e.target.value)} placeholder="1.2" /></div>
         <div className="field"><label>Years farming</label>
           <input type="number" inputMode="numeric" value={years} onChange={(e) => setYears(e.target.value)} /></div>
       </div>

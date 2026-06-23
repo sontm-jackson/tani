@@ -48,9 +48,10 @@ export const api = {
   // ---- signed-in farmer (token-scoped) ----
   me: () => req("/me"),
   meCashout: (amount: number) => req("/me/cashout", { method: "POST", body: JSON.stringify({ amount }) }),
+  meCashoutStatus: (id: string) => req(`/me/cashout/${id}`),
   meSetPayout: (body: { payoutType: string; payoutProvider: string; payoutAccount: string; payoutName: string }) =>
     req("/me/payout-method", { method: "POST", body: JSON.stringify(body) }),
-  meProfile: (body: { bio?: string; household?: string; yearsFarming?: number; lat?: number; lng?: number; village?: string }) =>
+  meProfile: (body: { bio?: string; farmSizeHa?: number; yearsFarming?: number; lat?: number; lng?: number; village?: string }) =>
     req("/me/profile", { method: "POST", body: JSON.stringify(body) }),
   meShipments: () => req("/me/shipments"),
   meCreateShipment: (body: any) => req("/me/shipments", { method: "POST", body: JSON.stringify(body) }),

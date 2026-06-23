@@ -43,7 +43,7 @@ export function FarmerShipments() {
 
       <h2 className="sec-title" style={{ marginTop: 22 }}>Your shipments</h2>
       <div className="card">
-        {ships.length === 0 && <div className="pad muted">No shipments yet. Create one to get a QR for your bag.</div>}
+        {ships.length === 0 && <div className="pad muted">No deliveries yet. Create one to get a QR to show on arrival.</div>}
         {ships.slice(0, shown).map((s) => (
           <button className="ship-item" key={s.id} onClick={() => setView({ detail: s })}>
             <div className="ship-item-main">
@@ -94,7 +94,7 @@ function CreateShipment({ onCreated, onCancel }: any) {
     <div className="ship-tab">
       <button className="link back" onClick={onCancel}>← Back</button>
       <h2 className="view-title">Create shipment</h2>
-      <p className="muted" style={{ fontSize: 13, marginTop: -4 }}>Declare what's in the bag. You'll get a QR to attach before shipping.</p>
+      <p className="muted" style={{ fontSize: 13, marginTop: -4 }}>Declare what's in the bag. You'll get a QR to show at the collection point.</p>
 
       <div className="form-group">
         <div className="form-group-label">Product</div>
@@ -142,7 +142,7 @@ function ShipmentDetail({ shipment: s, onBack }: any) {
           <button className="btn-ghost" onClick={() => printLabel(s)}>Print label</button>
         </div>
         {inTransit
-          ? <div className="muted" style={{ fontSize: 13, textAlign: "center" }}>Print this QR and attach it to your bag, then ship it to the cooperative.</div>
+          ? <div className="muted" style={{ fontSize: 13, textAlign: "center" }}>Show this QR at the collection point when you drop off your delivery.</div>
           : s.status === "paid"
             ? <div className="notice notice-ok" style={{ margin: 0 }}>Paid +{fmtUsdc(s.amountPaid)} USDC on verified {s.verifiedKg}kg</div>
             : <div className="notice notice-err" style={{ margin: 0 }}>Rejected on inspection{s.note ? `: ${s.note}` : ""}</div>}

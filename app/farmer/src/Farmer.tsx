@@ -63,6 +63,10 @@ export default function Farmer() {
           try { recaptchaRef.current.clear(); } catch {}
           recaptchaRef.current = null;
         }
+        // clear() doesn't always empty the container DOM; grecaptcha then throws
+        // "reCAPTCHA has already been rendered in this element". Reset it ourselves.
+        const rc = document.getElementById("recaptcha-container");
+        if (rc) rc.innerHTML = "";
         recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
         confirmationRef.current = await signInWithPhoneNumber(auth, e164, recaptchaRef.current);
       } else {
@@ -209,11 +213,25 @@ export default function Farmer() {
   );
 }
 
+// Plain-language labels for a cash-out's anchor-withdraw stages.
+function coStatusLabel(status: string): string {
+  switch (status) {
+    case "interactive": return "finishing at the bank";
+    case "anchor_ready": return "sending";
+    case "sent": return "on its way";
+    case "success": return "cashed out";
+    case "failed": return "failed";
+    default: return status;
+  }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 function Home({ farmer, justPaid, goWallet }: any) {
   const [shown, setShown] = useState(5);
   const activity = [
     ...farmer.payments.map((p: any) => ({ id: p.id, when: p.createdAt, kind: "in", title: p.reason, sub: "received", amt: `+${fmtUsdc(p.amount)} USDC`, link: p.explorer })),
-    ...farmer.cashOuts.map((c: any) => ({ id: c.id, when: c.createdAt, kind: "out", title: `Withdraw to ${c.destMasked ?? "destination"}`, sub: c.status, amt: `${fmtVnd(c.amountLocal)} ₫` })),
+    ...farmer.cashOuts.map((c: any) => ({ id: c.id, when: c.createdAt, kind: "out", title: `Withdraw to ${c.destMasked ?? "destination"}`, sub: coStatusLabel(c.status), amt: `${fmtVnd(c.amountLocal)} ₫`, link: c.explorer })),
   ].sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime());
 
   return (
@@ -233,7 +251,7 @@ function Home({ farmer, justPaid, goWallet }: any) {
             <div className={`act-ic ${a.kind}`}>{a.kind === "in" ? "↓" : "↑"}</div>
             <div className="act-main">
               <div className="act-title">{a.title}</div>
-              <div className="act-sub">{a.sub}{a.link && <> · <a className="link" href={a.link} target="_blank" rel="noreferrer">on-chain</a></>}</div>
+              <div className="act-sub">{a.sub}{a.link && <> · <a className="link" href={a.link} target="_blank" rel="noreferrer">view on Stellar</a></>}</div>
             </div>
             <div className={`act-amt ${a.kind}`}>{a.amt}</div>
           </div>
@@ -248,24 +266,58 @@ function Home({ farmer, justPaid, goWallet }: any) {
   );
 }
 
+const MAX_CASHOUT = 10; // testnet anchor caps each withdrawal at 10 USDC
+
 function Wallet({ farmer, refresh, goProfile }: any) {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
+  const [anchorUrl, setAnchorUrl] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  async function pollUntilDone(id: string) {
+    for (let i = 0; i < 120; i++) {
+      // ~8 min at 4s — covers the interactive step plus settlement
+      await sleep(4000);
+      let c: any;
+      try { c = await api.meCashoutStatus(id); } catch { continue; }
+      setStage(`${cap(coStatusLabel(c.status))}…`);
+      if (["success", "sent", "failed"].includes(c.status)) return c;
+    }
+    return { status: "pending" };
+  }
 
   async function cashOut() {
     const amt = Number(amount);
     if (!amt || amt <= 0) return;
-    setBusy(true); setNotice(null);
+    if (amt > MAX_CASHOUT) {
+      setNotice({ ok: false, msg: `On testnet the anchor allows up to ${MAX_CASHOUT} USDC per withdrawal.` });
+      return;
+    }
+    setBusy(true); setNotice(null); setAnchorUrl(null);
+    setStage("Opening your bank…");
     try {
       const r = await api.meCashout(amt);
-      setNotice({ ok: r.status === "success", msg: r.status === "success" ? `${fmtUsdc(r.amountUsdc)} USDC → ${fmtVnd(r.amountLocal)} ₫ sent to ${r.destMasked}` : `Cash-out ${r.status}` });
+      if (!r.interactiveUrl) throw new Error("Could not reach the anchor. Try again.");
+      // The anchor handles KYC + payout details in its own hosted window (real SEP-24).
+      const win = window.open(r.interactiveUrl, "tani-anchor", "width=440,height=760");
+      if (!win) setAnchorUrl(r.interactiveUrl); // popup blocked — show a manual button
+      setStage("Finish the steps in the anchor window, then come back here.");
+      const final = await pollUntilDone(r.id);
+      if (final.status === "success")
+        setNotice({ ok: true, msg: `${fmtUsdc(final.amountUsdc)} USDC → ${fmtVnd(final.amountLocal)} ₫ sent to ${final.destMasked}.` });
+      else if (final.status === "sent")
+        setNotice({ ok: true, msg: `Sent on Stellar. ${fmtVnd(final.amountLocal)} ₫ is on its way to ${final.destMasked}.` });
+      else if (final.status === "failed")
+        setNotice({ ok: false, msg: final.error ? `Cash-out did not complete: ${final.error}` : "Cash-out did not complete. Your balance is unchanged." });
+      else
+        setNotice({ ok: true, msg: "Still finishing at the anchor — check Activity in a moment." });
       setAmount("");
       await refresh();
     } catch (e: any) {
       setNotice({ ok: false, msg: e.message });
     } finally {
-      setBusy(false);
+      setBusy(false); setStage(null); setAnchorUrl(null);
     }
   }
 
@@ -285,7 +337,7 @@ function Wallet({ farmer, refresh, goProfile }: any) {
         ) : (
           <>
             <div className="row" style={{ gap: 10 }}>
-              <input type="number" placeholder="USDC amount" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ flex: 2 }} />
+              <input type="number" placeholder="USDC amount" max={MAX_CASHOUT} value={amount} onChange={(e) => setAmount(e.target.value)} style={{ flex: 2 }} disabled={busy} />
               <button className="btn-amber" style={{ flex: 1, minWidth: 110 }} onClick={cashOut} disabled={busy || !Number(amount)}>{busy ? "…" : "Withdraw"}</button>
             </div>
             {Number(amount) > 0 && (
@@ -293,11 +345,23 @@ function Wallet({ farmer, refresh, goProfile }: any) {
                 ≈ {fmtVnd(Math.round(Number(amount) * RATE))} ₫ to {farmer.payout.provider} ••••{(farmer.payout.account || "").slice(-4)}
               </div>
             )}
-            <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>Sent via a Stellar anchor. Simulated on testnet — production routes to a licensed Vietnamese anchor.</div>
+            {busy && stage && <div className="notice notice-ok" style={{ marginTop: 10 }}>{stage}</div>}
+            {anchorUrl && (
+              <button className="btn-green block" style={{ marginTop: 10 }} onClick={() => window.open(anchorUrl!, "tani-anchor", "width=440,height=760")}>
+                Open the anchor window
+              </button>
+            )}
+            <div className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
+              Sent through a real Stellar anchor (SEP-24). Testnet caps each withdrawal at {MAX_CASHOUT} USDC; production routes to a licensed Vietnamese anchor.
+            </div>
           </>
         )}
         {notice && <div className={`notice ${notice.ok ? "notice-ok" : "notice-err"}`}>{notice.msg}</div>}
       </div>
     </>
   );
+}
+
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
