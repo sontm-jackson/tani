@@ -49,7 +49,7 @@ npm run dev                   # http://localhost:5174
 Open **http://localhost:5173** (cooperative) and **http://localhost:5174** (farmer). In dev, each
 frontend proxies `/api` to the backend on :4000.
 
-**Farmer login is real phone OTP.** Enter a registered phone (e.g. `+84901000001`) → tap **Send
+**Farmer login is real phone OTP.** Enter a registered phone (e.g. `+84123456789`) → tap **Send
 code**. With no SMS provider configured, the app runs in dev mode and shows the code on screen so
 you can verify. Set `TWILIO_*` in `app/api/.env` to send real SMS in production.
 
@@ -67,7 +67,7 @@ set each project's **root directory** to `operator/` or `farmer/`). The backend 
 
 The headline flow is the **QR shipment cycle** — the full physical→digital→payment loop:
 
-1. **Farmer app** (:5174): sign in with phone `+84901000001` → Send code → enter the dev code shown.
+1. **Farmer app** (:5174): sign in with phone `+84123456789` → Send code → enter the dev code shown.
    Under **Ship**, click **Create
    shipment**, fill in the coffee attributes (variety, weight, grade, moisture, certification),
    and **Generate QR**. That QR represents the bag the farmer ships.
