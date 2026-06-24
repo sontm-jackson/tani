@@ -50,7 +50,8 @@ On **tani-api**:
 - (optional) `FIREBASE_*` for real phone OTP — otherwise the app runs dev OTP (code on screen)
 
 On **tani-operator** and **tani-farmer**:
-- `VITE_API_URL` → `https://tani-api.onrender.com/api` (use the real `tani-api` URL Render shows)
+- `VITE_API_URL` → the API **origin, with NO `/api`** — e.g. `https://tani-api-xxxx.onrender.com`
+  (the client appends `/api` itself; adding it here gives a broken `/api/api/...`).
 
 Redeploy the two frontends after setting `VITE_API_URL` — Vite bakes it in at build time.
 

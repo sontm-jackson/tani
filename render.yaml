@@ -57,7 +57,7 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
-      - key: VITE_API_URL # e.g. https://tani-api.onrender.com/api
+      - key: VITE_API_URL # the API ORIGIN, NO /api (client adds it) — e.g. https://tani-api-xxxx.onrender.com
         sync: false
     routes:
       - type: rewrite
