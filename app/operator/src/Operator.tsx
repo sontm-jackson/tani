@@ -237,7 +237,7 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
           </>
         )}
 
-        {tab === "Trace" && <Trace farmers={farmers} disbursements={disbs} shipments={ships} />}
+        {tab === "Trace" && <Trace farmers={farmers} disbursements={disbs} />}
 
         {tab === "Farmers" && (
           <>

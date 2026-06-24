@@ -110,6 +110,7 @@ function VerifyPanel({ shipment, rate, onClose, onDone }: any) {
   const [showFlags, setShowFlags] = useState(false);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const kg = Number(verifiedKg) || 0;
   const amount = Math.round(kg * rate * 1e7) / 1e7;
@@ -140,7 +141,12 @@ function VerifyPanel({ shipment, rate, onClose, onDone }: any) {
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="eyebrow">Verify arrival</div>
         <h2 style={{ margin: "2px 0 2px" }}>{shipment.farmerName}</h2>
-        <p className="sub" style={{ marginBottom: 18 }}>{shipment.village} · <span className="mono">{shipment.qrToken}</span></p>
+        <p className="sub" style={{ marginBottom: 18 }}>
+          {shipment.village} · <span className="mono">{shipment.qrToken}</span>
+          <button className="copy-token" onClick={() => { navigator.clipboard?.writeText(shipment.qrToken); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </p>
 
         {/* weight is the number that matters — lead with it, show the payout live */}
         <div className="vp-weight">

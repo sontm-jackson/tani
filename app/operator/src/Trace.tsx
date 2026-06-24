@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { api, fmtUsdc } from "@shared/api";
@@ -36,17 +36,7 @@ type Result =
   | { kind: "farm"; f: any }
   | null;
 
-// Pans/zooms the map to the traced origin(s) when a result is selected.
-function FitTo({ positions }: { positions: [number, number][] }) {
-  const map = useMap();
-  useEffect(() => {
-    if (positions.length === 1) map.flyTo(positions[0], 14, { duration: 0.8 });
-    else if (positions.length > 1) map.fitBounds(positions, { padding: [60, 60], maxZoom: 12 });
-  }, [JSON.stringify(positions)]);
-  return null;
-}
-
-export function Trace({ farmers, disbursements, shipments = [] }: { farmers: any[]; disbursements: any[]; shipments?: any[] }) {
+export function Trace({ farmers, disbursements }: { farmers: any[]; disbursements: any[] }) {
   const [lots, setLots] = useState<any[]>([]);
   const [q, setQ] = useState("");
   const [result, setResult] = useState<Result>(null);
@@ -77,19 +67,13 @@ export function Trace({ farmers, disbursements, shipments = [] }: { farmers: any
     }
   }
 
-  // which farms are highlighted, and where to fit the map
+  // which farms are highlighted (search or a clicked pin) — the map never moves on its own
   const hotIds = new Set<string>();
-  let positions: [number, number][] = [];
   if (result?.kind === "shipment" && result.s.farmerLat != null) {
     hotIds.add(result.s.farmerId);
-    positions = [[result.s.farmerLat, result.s.farmerLng]];
   } else if (result?.kind === "lot") {
-    for (const c of result.lot.contributions) {
-      hotIds.add(c.farmerId);
-      if (c.lat != null && c.lng != null) positions.push([c.lat, c.lng]);
-    }
+    for (const c of result.lot.contributions) hotIds.add(c.farmerId);
   } else if (result?.kind === "farm" && result.f.lat != null) {
-    // a clicked farm just highlights its pin and fills the panel — no map move
     hotIds.add(result.f.id);
   }
 
@@ -97,22 +81,11 @@ export function Trace({ farmers, disbursements, shipments = [] }: { farmers: any
   // only a *searched* result dims the other pins; a clicked farm leaves the map as-is
   const active = result != null && result.kind !== "farm";
 
-  // live example chips: prefer a paid bag and a disbursed lot so a click shows proof
-  const exShip = shipments.find((s) => s.status === "paid") ?? shipments[0];
-  const exLot = lots.find((l) => disbursements.some((d) => d.lot === l.code && d.status === "success")) ?? lots[0];
-  const examples = [
-    exShip && { q: exShip.qrToken as string, label: exShip.qrToken as string },
-    exLot && { q: exLot.code as string, label: exLot.code as string },
-  ].filter(Boolean) as { q: string; label: string }[];
-
   return (
     <div className="section">
       <div className="trace-head">
         <div>
           <h2 style={{ margin: 0 }}>Trace</h2>
-          <p className="sub" style={{ margin: "2px 0 0" }}>
-            Search a bag's QR or an export lot to see its exact origin farms on the map, with payments proven on-chain.
-          </p>
         </div>
         <span className="trace-count">{located.length} / {farmers.length} farms geolocated</span>
       </div>
@@ -127,15 +100,7 @@ export function Trace({ farmers, disbursements, shipments = [] }: { farmers: any
           <button className="btn-green" onClick={search}>Trace</button>
           {active && <button className="btn-ghost" onClick={() => { setQ(""); setResult(null); setErr(""); }}>Clear</button>}
         </div>
-        {!active && examples.length > 0 && (
-          <div className="trace-examples">
-            <span className="muted">Try</span>
-            {examples.map((ex) => (
-              <button key={ex.q} className="trace-chip" onClick={() => runTrace(ex.q)}>{ex.label}</button>
-            ))}
-          </div>
-        )}
-        {err && <div className="notice notice-err" style={{ marginBottom: 0, marginTop: 12 }}>{err}</div>}
+        {err &&<div className="notice notice-err" style={{ marginBottom: 0, marginTop: 12 }}>{err}</div>}
       </div>
 
       <div className="trace-grid">
@@ -151,7 +116,6 @@ export function Trace({ farmers, disbursements, shipments = [] }: { farmers: any
                   eventHandlers={{ click: () => setResult({ kind: "farm", f }) }} />
               );
             })}
-            {positions.length > 0 && <FitTo positions={positions} />}
           </MapContainer>
           <div className="trace-legend">
             <span><i className="ldot hot" />Traced origin</span>

@@ -10,6 +10,7 @@ every payout is provable on-chain.
 
 Built for the APAC Stellar Hackathon 2026. Working on **Stellar testnet** today.
 
+- **Live demo:** https://tani-operator.onrender.com (cooperative — sign in `coop@tani.app` / `tani1234`) and https://tani-farmer.onrender.com (farmer)
 - Demo video: _add link_
 - Pitch deck: _add link_
 
