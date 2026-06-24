@@ -1,0 +1,80 @@
+# Render Blueprint for Tani — one Node API + two static frontends, all free tier.
+# Prereqs: a Neon (free) Postgres DB, and a one-time local seed to generate the Stellar
+# secrets. See DEPLOY.md. Env vars marked `sync: false` are set in the Render dashboard.
+services:
+  # ---- backend API ----
+  - type: web
+    name: tani-api
+    runtime: node
+    rootDir: app/api
+    plan: free
+    buildCommand: npm install --include=dev && npx prisma generate && npx prisma db push
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: STELLAR_NETWORK
+        value: testnet
+      - key: HORIZON_URL
+        value: https://horizon-testnet.stellar.org
+      - key: FRIENDBOT_URL
+        value: https://friendbot.stellar.org
+      - key: ANCHOR_HOME_DOMAIN
+        value: testanchor.stellar.org
+      - key: ANCHOR_USDC_ISSUER
+        value: GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
+      - key: ASSET_CODE
+        value: USDC
+      # secrets — set in the dashboard (from the one-time local seed)
+      - key: DATABASE_URL
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ASSET_ISSUER
+        sync: false
+      - key: ISSUER_SECRET
+        sync: false
+      - key: TREASURY_SECRET
+        sync: false
+      - key: TREASURY_PUBLIC
+        sync: false
+      # optional — real phone OTP via Firebase (leave unset for dev OTP)
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+
+  # ---- cooperative dashboard (static) ----
+  - type: web
+    name: tani-operator
+    runtime: static
+    rootDir: app/operator
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL # e.g. https://tani-api.onrender.com/api
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # ---- farmer app (static) ----
+  - type: web
+    name: tani-farmer
+    runtime: static
+    rootDir: app/farmer
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
