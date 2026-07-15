@@ -11,8 +11,8 @@ every payout is provable on-chain.
 Built for the APAC Stellar Hackathon 2026. Working on **Stellar testnet** today.
 
 - **Live demo:** https://tani-operator.onrender.com (cooperative — sign in `coop@tani.app` / `tani1234`) and https://tani-farmer.onrender.com (farmer)
-- Demo video: _add link_
-- Pitch deck: _add link_
+- Demo video: https://drive.google.com/file/d/1ypGcYkTu9JmsCPEZU-sE8EIaq5QAcOZ7/view
+- Pitch deck: https://docs.google.com/presentation/d/1Y19JOFNnRqLtUcV_t1XTL6BLsSb3-i7B/edit
 
 ---
 
@@ -72,7 +72,7 @@ written to `app/api/.env`.
 ```
 app/
   api/        TypeScript backend — event -> rule -> payout engine, custodial wallets,
-              real SEP-10 / SEP-24 anchor cash-out (Express + Prisma/SQLite + Stellar SDK)
+              real SEP-10 / SEP-24 anchor cash-out (Express + Prisma/Postgres + Stellar SDK)
   operator/   Cooperative dashboard (React) — scan-and-pay, rules, roster, on-chain proof, EUDR map
   farmer/     Farmer app (React, mobile) — declare deliveries, get paid, cash out
   shared/     Shared API client + design tokens used by both frontends

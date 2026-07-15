@@ -5,7 +5,7 @@ pays smallholder farmers in USDC; farmers cash out to local currency via an anch
 
 Structure — one backend, two independently-deployable frontends, shared code:
 
-- `api/` — TypeScript backend: event ingest, rules engine, Stellar payouts, custodial wallets, anchor cash-out. Prisma + SQLite. Deploys once.
+- `api/` — TypeScript backend: event ingest, rules engine, Stellar payouts, custodial wallets, anchor cash-out. Prisma + Postgres. Deploys once.
 - `operator/` — Vite + React **cooperative dashboard** (desktop web). Deploys to its own URL.
 - `farmer/` — Vite + React **farmer app** (mobile-friendly). Deploys to its own URL.
 - `shared/` — API client + design tokens, imported by both frontends via the `@shared` alias (no duplication).
@@ -31,7 +31,7 @@ Run three terminals (backend + two frontends):
 cd api
 npm install
 cp .env.example .env          # defaults are fine
-npm run db:push               # create the SQLite database
+npm run db:push               # push the schema to Postgres
 npm run seed                  # provision issuer + pool + 8 farmers + lots + shipments (~1-2 min)
 npm run dev                   # API on http://localhost:4000
 
@@ -104,7 +104,7 @@ To reset for a fresh demo: `cd api && npm run seed` (clears data and re-provisio
   support USDC withdraw, so a real flow is feasible next; it needs the interactive KYC popup).
 - Payouts use direct batch payment, not the **Stellar Disbursement Platform** (the optional
   composability upgrade).
-- Demo-grade custody (encrypted SQLite, not KMS) and a demo USDC issuer (not Circle's).
+- Demo-grade custody (keys encrypted at rest, not KMS) and a demo USDC issuer (not Circle's).
 
 ## How it's commodity-agnostic
 
