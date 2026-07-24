@@ -13,23 +13,10 @@ dev-dist/
 *.db
 *.db-journal
 
-# pitch / planning / draft material (kept local, not published)
-Tani_Pitch.pptx
-Tani_Live.pptx
-Tani-final.pptx
-build_deck.py
-build_live_deck.py
-make_logo.py
-brand/
-screenshots_live/
+# pitch / planning / draft material — all kept local, not published
+_local/
 pitch-kit/
-preview/
-BRIEF.md
-BUSINESS-AND-ARCHITECTURE.md
-COMPETITORS.md
-IDEA.md
-PLAN.md
-WHY-STELLAR.md
+*.pptx
 
 # misc
 __pycache__/
