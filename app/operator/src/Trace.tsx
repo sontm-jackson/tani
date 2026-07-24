@@ -41,6 +41,7 @@ export function Trace({ farmers, disbursements }: { farmers: any[]; disbursement
   const [q, setQ] = useState("");
   const [result, setResult] = useState<Result>(null);
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => { api.lots().then(setLots).catch(() => {}); }, []);
 
@@ -58,12 +59,15 @@ export function Trace({ farmers, disbursements }: { farmers: any[]; disbursement
       setResult({ kind: "lot", lot, disb });
       return;
     }
+    setBusy(true);
     try {
       const s = await api.shipmentByToken(v);
       setResult({ kind: "shipment", s });
     } catch {
       setErr("No shipment (TANI-…) or lot (LOT-…) found for that code.");
       setResult(null);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -97,7 +101,7 @@ export function Trace({ farmers, disbursements }: { farmers: any[]; disbursement
             <input placeholder="QR code (TANI-…) or lot code (LOT-…)" value={q}
               onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} />
           </div>
-          <button className="btn-green" onClick={search}>Trace</button>
+          <button className="btn-green" onClick={search} disabled={busy}>{busy ? "Tracing…" : "Trace"}</button>
           {active && <button className="btn-ghost" onClick={() => { setQ(""); setResult(null); setErr(""); }}>Clear</button>}
         </div>
         {err &&<div className="notice notice-err" style={{ marginBottom: 0, marginTop: 12 }}>{err}</div>}

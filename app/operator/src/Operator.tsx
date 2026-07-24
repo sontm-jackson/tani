@@ -36,6 +36,13 @@ export default function Operator({ onLogout }: { onLogout: () => void }) {
     api.anchorInfo().then(setAnchor).catch(() => {});
   }, []);
 
+  // auto-dismiss the notice so a success/error banner never sits stale across tab switches
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
   async function run(key: string, fn: () => Promise<any>, okMsg?: (r: any) => string) {
     setBusy(key); setNotice(null);
     try {

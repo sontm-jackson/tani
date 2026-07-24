@@ -41,7 +41,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
           {busy ? "Signing in…" : "Sign in"}
         </button>
         {err && <div className="notice notice-err">{err}</div>}
-        <div className="muted demo-hint">Demo login — coop@tani.app / tani1234</div>
+        {import.meta.env.DEV && <div className="muted demo-hint">Demo login — coop@tani.app / tani1234</div>}
       </div>
     </div>
   );

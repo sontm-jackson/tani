@@ -1,7 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "../db.js";
 import { usdc } from "../stellar/client.js";
-import { batchPay } from "../stellar/payments.js";
+import { batchPay, stellarError } from "../stellar/payments.js";
+import { getAssetBalance } from "../stellar/account.js";
+import { config } from "../config.js";
 import { decrypt } from "../crypto.js";
 
 export function newQrToken(): string {
@@ -45,12 +47,23 @@ export async function verifyAndPay(shipmentId: string, input: VerifyInput) {
   if (!rule) throw new Error(`no active rule for commodity "${s.commodity}"`);
   const amount = Math.round(verifiedKg * rule.ratePerKg * 1e7) / 1e7;
 
-  const hash = await batchPay(
-    decrypt(s.operator.poolSecret),
-    usdc(),
-    [{ destination: s.farmer.wallet.publicKey, amount }],
-    "Tani shipment"
-  );
+  // Clean, upfront message instead of a raw Horizon "op_underfunded" if the pool is short.
+  const poolBal = await getAssetBalance(s.operator.poolPublicKey, config.assetCode, config.assetIssuer);
+  if (poolBal < amount) {
+    throw new Error(`The payout pool has ${poolBal} USDC but this payment needs ${amount}. Top up the pool first.`);
+  }
+
+  let hash: string;
+  try {
+    hash = await batchPay(
+      decrypt(s.operator.poolSecret),
+      usdc(),
+      [{ destination: s.farmer.wallet.publicKey, amount }],
+      "Tani shipment"
+    );
+  } catch (e: any) {
+    throw new Error(`Payment failed: ${stellarError(e)}`);
+  }
 
   return prisma.shipment.update({
     where: { id: shipmentId },

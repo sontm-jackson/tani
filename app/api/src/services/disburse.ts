@@ -1,6 +1,8 @@
 import { prisma } from "../db.js";
 import { usdc } from "../stellar/client.js";
-import { batchPay } from "../stellar/payments.js";
+import { batchPay, stellarError } from "../stellar/payments.js";
+import { getAssetBalance } from "../stellar/account.js";
+import { config } from "../config.js";
 import { decrypt } from "../crypto.js";
 import { computePayouts } from "./rules.js";
 
@@ -26,6 +28,12 @@ export async function processEvent(eventId: string) {
   if (payouts.length === 0) throw new Error("no payouts resolved for event");
 
   const total = payouts.reduce((s, p) => s + p.amount, 0);
+
+  // Clean, upfront message instead of a raw Horizon "op_underfunded" if the pool is short.
+  const poolBal = await getAssetBalance(operator.poolPublicKey, config.assetCode, config.assetIssuer);
+  if (poolBal < total) {
+    throw new Error(`The payout pool has ${poolBal} USDC but this disbursement needs ${total}. Top up the pool first.`);
+  }
 
   // Create the disbursement + payment rows up front (status pending).
   const disbursement = await prisma.disbursement.create({
@@ -64,13 +72,12 @@ export async function processEvent(eventId: string) {
     }
     return updated;
   } catch (e: any) {
-    const codes = e?.response?.data?.extras?.result_codes;
-    const msg = codes ? JSON.stringify(codes) : e?.message ?? String(e);
+    const msg = stellarError(e);
     await prisma.disbursement.update({
       where: { id: disbursement.id },
       data: { status: "failed", error: msg },
     });
     await prisma.event.update({ where: { id: event.id }, data: { status: "failed" } });
-    throw new Error(`disbursement failed: ${msg}`);
+    throw new Error(`Payout failed: ${msg}`);
   }
 }

@@ -152,7 +152,7 @@ function VerifyPanel({ shipment, rate, onClose, onDone }: any) {
         <div className="vp-weight">
           <label>Weight on the scale</label>
           <div className="vp-weight-row">
-            <input type="number" inputMode="decimal" value={verifiedKg} onChange={(e) => setKg(e.target.value)} />
+            <input type="number" inputMode="decimal" min="0" value={verifiedKg} onChange={(e) => setKg(e.target.value)} />
             <span className="vp-unit">kg</span>
             <span className="vp-claim">declared {shipment.claimedKg}</span>
           </div>
@@ -184,7 +184,7 @@ function VerifyPanel({ shipment, rate, onClose, onDone }: any) {
         {err && <div className="notice notice-err">{err}</div>}
 
         <div className="vp-actions">
-          <button className="btn-primary" disabled={!!busy || !kg} onClick={() => submit(true)}>
+          <button className="btn-primary" disabled={!!busy || !(kg > 0)} onClick={() => submit(true)}>
             {busy === "pay" ? "Paying…" : `Verify & pay ${fmtUsdc(amount)} USDC`}
           </button>
           <button className="btn-ghost" disabled={!!busy} onClick={() => submit(false)}>{busy === "reject" ? "…" : "Reject"}</button>

@@ -14,6 +14,22 @@ export function fmt(amount: number): string {
   return amount.toFixed(7);
 }
 
+// Turn a stellar-sdk / Horizon submit error into a human-readable message, so the
+// operator/farmer never sees raw result_codes JSON or "Request failed with status code 400".
+export function stellarError(e: any): string {
+  const codes = e?.response?.data?.extras?.result_codes;
+  if (codes) {
+    const ops: string[] = Array.isArray(codes.operations) ? codes.operations : [];
+    if (ops.includes("op_underfunded")) return "the paying account doesn't have enough balance";
+    if (ops.includes("op_no_trust")) return "the recipient hasn't opened a trustline for this asset yet";
+    if (ops.includes("op_no_destination")) return "the recipient account isn't active on the network yet";
+    if (ops.includes("op_line_full")) return "the recipient's balance limit is full";
+    const detail = ops.filter((c) => c && c !== "op_success").join(", ") || codes.transaction || "transaction failed";
+    return `the payment was rejected (${detail})`;
+  }
+  return e?.message ?? String(e);
+}
+
 export interface PayoutInstruction {
   destination: string;
   amount: number;

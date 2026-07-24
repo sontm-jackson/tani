@@ -61,6 +61,16 @@ export async function initiateCashOut(farmerId: string, amountUsdc: number) {
   if (amountUsdc > config.anchorMaxPerTx) {
     throw new Error(`The anchor accepts at most ${config.anchorMaxPerTx} USDC per cash-out on testnet.`);
   }
+  // One cash-out at a time — a double-tap on mobile would otherwise open two anchor windows
+  // and double-debit the treasury.
+  const inFlight = await prisma.cashOut.findFirst({
+    where: { farmerId, status: { in: ["interactive", "sent"] } },
+  });
+  if (inFlight) throw new Error("You already have a cash-out in progress. Please wait for it to finish.");
+  // Fail fast if the farmer can't cover it, before opening the anchor window.
+  if ((await getAssetBalance(farmer.wallet.publicKey, config.assetCode, config.assetIssuer)) < amountUsdc) {
+    throw new Error("You don't have enough USDC to cash out this amount.");
+  }
   if (!farmer.payoutAccount) {
     throw new Error("Set a payout destination (bank or mobile money) before cashing out.");
   }

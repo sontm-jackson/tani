@@ -289,7 +289,14 @@ function Wallet({ farmer, refresh, goProfile }: any) {
 
   async function cashOut() {
     const amt = Number(amount);
-    if (!amt || amt <= 0) return;
+    if (!amt || amt <= 0) {
+      setNotice({ ok: false, msg: "Enter an amount greater than 0." });
+      return;
+    }
+    if (amt > farmer.balance) {
+      setNotice({ ok: false, msg: `You only have ${fmtUsdc(farmer.balance)} USDC available.` });
+      return;
+    }
     if (amt > MAX_CASHOUT) {
       setNotice({ ok: false, msg: `On testnet the anchor allows up to ${MAX_CASHOUT} USDC per withdrawal.` });
       return;
@@ -337,7 +344,7 @@ function Wallet({ farmer, refresh, goProfile }: any) {
         ) : (
           <>
             <div className="row" style={{ gap: 10 }}>
-              <input type="number" placeholder="USDC amount" max={MAX_CASHOUT} value={amount} onChange={(e) => setAmount(e.target.value)} style={{ flex: 2 }} disabled={busy} />
+              <input type="number" placeholder="USDC amount" min="0" max={MAX_CASHOUT} value={amount} onChange={(e) => setAmount(e.target.value)} style={{ flex: 2 }} disabled={busy} />
               <button className="btn-amber" style={{ flex: 1, minWidth: 110 }} onClick={cashOut} disabled={busy || !Number(amount)}>{busy ? "…" : "Withdraw"}</button>
             </div>
             {Number(amount) > 0 && (
