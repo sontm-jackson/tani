@@ -3,6 +3,7 @@ import cors from "cors";
 import { config } from "./config.js";
 import { router } from "./routes.js";
 import { ensureEncryptionKey, ensureJwtSecret } from "./crypto.js";
+import { resumePendingCashOuts } from "./services/anchorWithdraw.js";
 
 // Make sure runtime secrets exist (created + persisted on first run).
 ensureEncryptionKey();
@@ -20,4 +21,6 @@ app.listen(config.port, () => {
   if (!config.assetIssuer) {
     console.log("  ! ASSET_ISSUER not set — run `npm run seed` to provision the demo.");
   }
+  // Re-attach pollers to any cash-out interrupted by the previous shutdown/redeploy.
+  resumePendingCashOuts().catch((e) => console.error("resumePendingCashOuts", e));
 });

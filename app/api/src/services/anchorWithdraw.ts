@@ -133,6 +133,13 @@ export async function settleCashOut(cashOutId: string): Promise<void> {
   const token = cash.sep10Token;
   const id = cash.anchorTxId;
 
+  // If the withdraw already left the wallet (status "sent"), never move funds again on a
+  // resume — just wait for the anchor to confirm the fiat payout.
+  if (cash.status === "sent") {
+    await pollAnchorCompletion(cashOutId, token, id);
+    return;
+  }
+
   // 1) Wait for the farmer to finish KYC; the anchor then returns where to send funds.
   let tx: any = null;
   for (let i = 0; i < 150; i++) {
@@ -191,6 +198,12 @@ export async function settleCashOut(cashOutId: string): Promise<void> {
   }
 
   // 5) Wait for the anchor to confirm it paid out the local currency.
+  await pollAnchorCompletion(cashOutId, token, id);
+}
+
+// Poll the anchor until it confirms the fiat payout (or errors). Used at the end of a fresh
+// settlement AND to resume a "sent" cash-out after a restart — it never moves funds.
+async function pollAnchorCompletion(cashOutId: string, token: string, id: string): Promise<void> {
   for (let i = 0; i < 60; i++) {
     try {
       const t = await sep24Transaction(token, id);
@@ -206,6 +219,28 @@ export async function settleCashOut(cashOutId: string): Promise<void> {
     await sleep(4000);
   }
   // Funds were sent; the anchor just hasn't flipped to completed yet. Leave as "sent".
+}
+
+// On boot, re-attach pollers to cash-outs left mid-flight by a restart/redeploy so the
+// farmer's UI never spins forever. `sep10Token` is persisted for exactly this resume.
+// "interactive" rows re-run the full flow (funds not yet moved in the normal case); "sent"
+// rows only re-poll for anchor confirmation (funds already left the wallet).
+export async function resumePendingCashOuts(): Promise<void> {
+  const pending = await prisma.cashOut.findMany({
+    where: { status: { in: ["interactive", "sent"] } },
+  });
+  if (pending.length === 0) return;
+  console.log(`resuming ${pending.length} in-flight cash-out(s)`);
+  for (const c of pending) {
+    // A long-stranded "interactive" row (abandoned KYC, or an old restart) won't recover —
+    // fail it cleanly instead of making the UI wait another 10 minutes.
+    const ageMin = (Date.now() - new Date(c.createdAt).getTime()) / 60000;
+    if (c.status === "interactive" && ageMin > 20) {
+      await fail(c.id, "This cash-out was interrupted. Please try again.");
+      continue;
+    }
+    settleCashOut(c.id).catch((e) => console.error("resume settleCashOut", c.id, e));
+  }
 }
 
 async function fail(cashOutId: string, msg: string) {
