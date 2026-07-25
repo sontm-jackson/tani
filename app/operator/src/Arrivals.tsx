@@ -16,6 +16,7 @@ export function Arrivals({ rules, onChanged, onNotice }: { rules: any[]; onChang
   const [sel, setSel] = useState<any>(null);
   const [code, setCode] = useState("");
   const [cam, setCam] = useState(false);
+  const [manual, setManual] = useState(false);
   const [err, setErr] = useState("");
 
   function rateFor(commodity: string) {
@@ -53,16 +54,19 @@ export function Arrivals({ rules, onChanged, onNotice }: { rules: any[]; onChang
             <CameraScan onScan={(t) => open(t)} />
             <button className="btn-ghost block" style={{ marginTop: 12 }} onClick={() => setCam(false)}>Cancel</button>
           </>
+        ) : manual ? (
+          <div className="arr-paste">
+            <input autoFocus placeholder="Enter code (TANI-…)" value={code}
+              onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && open(code)} />
+            <button className="btn-ghost" disabled={!code} onClick={() => open(code)}>Look up</button>
+            <button className="link" onClick={() => { setManual(false); setCode(""); setErr(""); }}>Cancel</button>
+          </div>
         ) : (
           <>
             <button className="btn-green arr-scan-btn" onClick={() => { setErr(""); setCam(true); }}>
               <ScanIcon /> Scan farmer's QR
             </button>
-            <div className="arr-paste">
-              <input placeholder="or paste a code (TANI-…)" value={code}
-                onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && open(code)} />
-              <button className="btn-ghost" disabled={!code} onClick={() => open(code)}>Look up</button>
-            </div>
+            <button className="link arr-manual-link" onClick={() => { setErr(""); setManual(true); }}>Enter code manually</button>
           </>
         )}
         {err && <div className="notice notice-err">{err}</div>}

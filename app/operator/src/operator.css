@@ -171,6 +171,7 @@ html { scrollbar-gutter: stable; }
 .arr-paste { display: flex; gap: 8px; margin-top: 10px; }
 .arr-paste input { flex: 1; }
 .arr-paste .btn-ghost { white-space: nowrap; }
+.arr-manual-link { display: block; margin: 12px auto 0; font-size: 13px; }
 #qr-reader { max-width: 360px; margin: 0 auto; }
 .arr-expected-head { display: flex; align-items: center; gap: 10px; margin: 22px 0 10px; }
 .arr-expected-head h3 { margin: 0; font-size: 15px; }
