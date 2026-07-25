@@ -33,7 +33,7 @@ export function Arrivals({ rules, onChanged, onNotice }: { rules: any[]; onChang
     try {
       const s = await api.shipmentByToken(token.trim());
       if (s.status !== "declared") setErr(`This delivery is already ${s.status}.`);
-      else { setSel(s); setCam(false); setCode(""); }
+      else { setSel(s); setCam(false); }
     } catch (e: any) {
       setErr(e.message);
     }
